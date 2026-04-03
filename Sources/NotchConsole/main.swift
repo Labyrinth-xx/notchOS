@@ -147,30 +147,45 @@ final class NotchController: NSObject, WKScriptMessageHandler {
 
     private func handleMouseMove() {
         let mouseLocation = NSEvent.mouseLocation
-        let hitFrame = isExpanded ? geometry.expandedFrame : geometry.collapsedFrame
 
-        // Hover zone extends into notch + surrounding menu bar area
-        let hoverZone = hitFrame.insetBy(dx: -40, dy: -20)
+        if isExpanded {
+            // Two-zone detection (like VibeIsland):
+            // Zone 1 — Notch strip: narrow area at screen top (pill width only)
+            //          Keeps panel open when mouse is in the notch area
+            // Zone 2 — Content area: the visible dashboard below the notch
+            //          Full expanded width, from notch bottom to panel bottom
+            let notchZone = geometry.collapsedFrame
+            let contentZone = NSRect(
+                x: geometry.expandedFrame.minX,
+                y: geometry.expandedFrame.minY,
+                width: geometry.expandedFrame.width,
+                height: geometry.collapsedFrame.minY - geometry.expandedFrame.minY
+            )
 
-        if hoverZone.contains(mouseLocation) {
-            collapseTimer?.invalidate()
-            collapseTimer = nil
-            // Require 0.15s dwell before expanding (prevents accidental trigger from mouse passing through)
-            if hoverStartTime == nil {
-                hoverStartTime = Date()
-            }
-            if !isExpanded, let start = hoverStartTime, Date().timeIntervalSince(start) >= 0.15 {
-                expand()
+            let isInPanel = notchZone.contains(mouseLocation) || contentZone.contains(mouseLocation)
+
+            if isInPanel {
+                collapseTimer?.invalidate()
+                collapseTimer = nil
+            } else if collapseTimer == nil {
+                collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+                    self?.collapse()
+                }
             }
         } else {
-            hoverStartTime = nil
-            if isExpanded {
-                // Slightly longer collapse delay for comfort
-                if collapseTimer == nil {
-                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
-                        self?.collapse()
-                    }
+            // Collapsed: approach zone around the pill for easy targeting
+            let hoverZone = geometry.collapsedFrame.insetBy(dx: -20, dy: -12)
+            if hoverZone.contains(mouseLocation) {
+                collapseTimer?.invalidate()
+                collapseTimer = nil
+                if hoverStartTime == nil {
+                    hoverStartTime = Date()
                 }
+                if let start = hoverStartTime, Date().timeIntervalSince(start) >= 0.15 {
+                    expand()
+                }
+            } else {
+                hoverStartTime = nil
             }
         }
     }
