@@ -41,7 +41,34 @@ body {
   /* Solid black — blends seamlessly with the physical notch */
   background: #000;
   border-radius: 0 0 12px 12px;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, box-shadow 0.5s ease;
+}
+
+/* ===== Glow Effect — status visible from peripheral vision ===== */
+
+#pill[data-state="thinking"] {
+  box-shadow: 0 2px 12px rgba(96, 165, 250, 0.35), 0 0 20px rgba(96, 165, 250, 0.15);
+  animation: glow-blue 2s ease-in-out infinite;
+}
+#pill[data-state="working"] {
+  box-shadow: 0 2px 12px rgba(251, 146, 60, 0.35), 0 0 20px rgba(251, 146, 60, 0.15);
+  animation: glow-orange 2.5s ease-in-out infinite;
+}
+#pill[data-state="error"], #pill[data-state="attention"] {
+  box-shadow: 0 2px 16px rgba(248, 113, 113, 0.5), 0 0 24px rgba(248, 113, 113, 0.2);
+  animation: glow-red 1s ease-in-out infinite;
+}
+#pill[data-state="notification"] {
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35), 0 0 20px rgba(251, 191, 36, 0.15);
+  animation: glow-yellow 1.5s ease-in-out infinite;
+}
+#pill[data-state="juggling"] {
+  box-shadow: 0 2px 12px rgba(192, 132, 252, 0.35), 0 0 20px rgba(192, 132, 252, 0.15);
+  animation: glow-purple 2s ease-in-out infinite;
+}
+#pill[data-state="idle"], #pill[data-state="sleeping"], #pill[data-state="empty"] {
+  box-shadow: none;
+  animation: none;
 }
 
 #pill.hidden {
@@ -208,6 +235,30 @@ body {
   font-size: 12px;
 }
 
+/* Confetti canvas */
+
+#confettiCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+}
+
+/* Session title (from first user prompt) */
+
+.session-title {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
 /* ===== Animations ===== */
 
 @keyframes pulse {
@@ -218,4 +269,31 @@ body {
 @keyframes breathe {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* Glow breathing animations for pill */
+
+@keyframes glow-blue {
+  0%, 100% { box-shadow: 0 2px 12px rgba(96, 165, 250, 0.35), 0 0 20px rgba(96, 165, 250, 0.15); }
+  50% { box-shadow: 0 2px 18px rgba(96, 165, 250, 0.55), 0 0 30px rgba(96, 165, 250, 0.25); }
+}
+
+@keyframes glow-orange {
+  0%, 100% { box-shadow: 0 2px 12px rgba(251, 146, 60, 0.35), 0 0 20px rgba(251, 146, 60, 0.15); }
+  50% { box-shadow: 0 2px 18px rgba(251, 146, 60, 0.55), 0 0 30px rgba(251, 146, 60, 0.25); }
+}
+
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 2px 16px rgba(248, 113, 113, 0.5), 0 0 24px rgba(248, 113, 113, 0.2); }
+  50% { box-shadow: 0 2px 24px rgba(248, 113, 113, 0.7), 0 0 36px rgba(248, 113, 113, 0.35); }
+}
+
+@keyframes glow-yellow {
+  0%, 100% { box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35), 0 0 20px rgba(251, 191, 36, 0.15); }
+  50% { box-shadow: 0 2px 18px rgba(251, 191, 36, 0.55), 0 0 30px rgba(251, 191, 36, 0.25); }
+}
+
+@keyframes glow-purple {
+  0%, 100% { box-shadow: 0 2px 12px rgba(192, 132, 252, 0.35), 0 0 20px rgba(192, 132, 252, 0.15); }
+  50% { box-shadow: 0 2px 18px rgba(192, 132, 252, 0.55), 0 0 30px rgba(192, 132, 252, 0.25); }
 }

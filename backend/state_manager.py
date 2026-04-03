@@ -1,4 +1,4 @@
-"""In-memory session state manager with TTL cleanup."""
+"""In-memory session state manager with TTL cleanup and WebSocket broadcast."""
 
 from __future__ import annotations
 
@@ -8,7 +8,9 @@ import logging
 import time
 from pathlib import Path
 
-from backend.models import HookEvent, SessionState
+from fastapi import WebSocket
+
+from backend.models import HookEvent, NotchResponse, SessionState
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,9 @@ class StateManager:
     def __init__(self) -> None:
         self._sessions: dict[str, SessionState] = {}
         self._lock = asyncio.Lock()
+        self._ws_clients: set[WebSocket] = set()
 
-    async def handle_hook(self, event: HookEvent) -> SessionState:
+    async def handle_hook(self, event: HookEvent, state: str) -> SessionState:
         """Update session state from a hook event. Returns updated state."""
         now = time.time()
         async with self._lock:
@@ -32,29 +35,53 @@ class StateManager:
                 project = _resolve_project(event.session_id)
                 session = SessionState(
                     session_id=event.session_id,
-                    state=event.state,
+                    state=state,
                     project=project,
                     event=event.event,
                     tool_name=event.tool_name,
+                    title=event.title,
                     started_at=now,
                     updated_at=now,
                 )
             else:
-                session = existing.model_copy(
-                    update={
-                        "state": event.state,
-                        "event": event.event,
-                        "tool_name": event.tool_name,
-                        "updated_at": now,
-                    }
-                )
+                update: dict = {
+                    "state": state,
+                    "event": event.event,
+                    "tool_name": event.tool_name,
+                    "updated_at": now,
+                }
+                # Only set title on first UserPromptSubmit (don't overwrite)
+                if event.title and not existing.title:
+                    update["title"] = event.title
+                session = existing.model_copy(update=update)
 
-            if event.state == "sleeping":
+            if state == "sleeping":
                 self._sessions.pop(event.session_id, None)
             else:
                 self._sessions[event.session_id] = session
 
             return session
+
+    async def broadcast(self) -> None:
+        """Push current state to all connected WebSocket clients."""
+        if not self._ws_clients:
+            return
+        sessions = await self.get_all()
+        payload = NotchResponse(sessions=sessions).model_dump_json()
+        dead: list[WebSocket] = []
+        for ws in list(self._ws_clients):  # snapshot to avoid RuntimeError on set mutation
+            try:
+                await ws.send_text(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self._ws_clients.discard(ws)
+
+    def add_ws(self, ws: WebSocket) -> None:
+        self._ws_clients.add(ws)
+
+    def remove_ws(self, ws: WebSocket) -> None:
+        self._ws_clients.discard(ws)
 
     async def get_all(self) -> list[SessionState]:
         """Return all active sessions, pruning stale ones."""

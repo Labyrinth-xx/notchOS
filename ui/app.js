@@ -1,14 +1,20 @@
 /**
  * notchOS — Notch UI
- * Polls backend for session state and renders pill / dashboard.
+ * WebSocket-first with polling fallback for session state.
  */
 
+const WS_URL = "ws://127.0.0.1:23456/ws";
 const API_URL = "http://127.0.0.1:23456/api/state";
-const POLL_COLLAPSED = 2000;
-const POLL_EXPANDED = 1000;
+const POLL_FALLBACK = 5000;
+const RECONNECT_DELAY = 3000;
 
 let isExpanded = false;
 let pollTimer = null;
+let ws = null;
+let wsConnected = false;
+
+// Track previous states per session for transition detection
+const previousStates = new Map();
 
 // Elements
 const pill = document.getElementById("pill");
@@ -19,15 +25,92 @@ const dashboard = document.getElementById("dashboard");
 const sessionCount = document.getElementById("sessionCount");
 const sessionsList = document.getElementById("sessionsList");
 
+// ===== Swift Bridge =====
+
 // Called by Swift via evaluateJavaScript
 window.notchSetExpanded = function (expanded) {
   isExpanded = expanded;
   pill.classList.toggle("hidden", expanded);
   dashboard.classList.toggle("visible", expanded);
-  restartPolling();
+  if (!wsConnected) restartPolling();
 };
 
-// Elapsed time helper
+// ===== WebSocket =====
+
+function connectWebSocket() {
+  if (ws && ws.readyState <= WebSocket.OPEN) return;
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = function () {
+    wsConnected = true;
+    stopPolling();
+  };
+
+  ws.onmessage = function (evt) {
+    try {
+      const data = JSON.parse(evt.data);
+      handleStateUpdate(data.sessions || []);
+    } catch { /* ignore malformed messages */ }
+  };
+
+  ws.onclose = function () {
+    wsConnected = false;
+    ws = null;
+    restartPolling();
+    setTimeout(connectWebSocket, RECONNECT_DELAY);
+  };
+
+  ws.onerror = function () {
+    ws.close();
+  };
+}
+
+// ===== State Update =====
+
+function handleStateUpdate(sessions) {
+  // Detect state transitions for sound effects
+  for (const s of sessions) {
+    const prev = previousStates.get(s.session_id);
+    if (prev && prev !== s.state) {
+      onStateTransition(s.session_id, prev, s.state);
+    }
+    previousStates.set(s.session_id, s.state);
+  }
+
+  // Clean up sessions that disappeared
+  const activeIds = new Set(sessions.map((s) => s.session_id));
+  for (const id of previousStates.keys()) {
+    if (!activeIds.has(id)) previousStates.delete(id);
+  }
+
+  renderPill(sessions);
+  if (isExpanded) renderDashboard(sessions);
+}
+
+// Sound + confetti trigger on state transition
+function onStateTransition(sessionId, fromState, toState) {
+  const workingStates = new Set(["working", "thinking", "juggling"]);
+  const doneStates = new Set(["idle", "sleeping", "attention"]);
+
+  if (workingStates.has(fromState) && doneStates.has(toState)) {
+    notifySwift("playSound", "complete");
+    if (isExpanded) triggerConfetti();
+  } else if (toState === "error") {
+    notifySwift("playSound", "error");
+  } else if (toState === "notification") {
+    notifySwift("playSound", "attention");
+  }
+}
+
+function notifySwift(type, value) {
+  try {
+    window.webkit.messageHandlers.notch.postMessage({ type, value });
+  } catch { /* Swift bridge not available */ }
+}
+
+// ===== Rendering =====
+
 function formatElapsed(startedAt) {
   const seconds = Math.floor(Date.now() / 1000 - startedAt);
   if (seconds < 60) return `${seconds}s`;
@@ -37,12 +120,11 @@ function formatElapsed(startedAt) {
   return `${hours}h ${minutes % 60}m`;
 }
 
-// Pick the "most active" state from sessions for the pill dot
 function dominantState(sessions) {
   const priority = [
     "error", "attention", "notification",
     "thinking", "working", "juggling",
-    "sweeping", "carrying", "idle", "sleeping"
+    "sweeping", "carrying", "idle", "sleeping",
   ];
   for (const state of priority) {
     if (sessions.some((s) => s.state === state)) return state;
@@ -50,29 +132,30 @@ function dominantState(sessions) {
   return "empty";
 }
 
-// Render pill (collapsed state)
 function renderPill(sessions) {
   if (sessions.length === 0) {
     pillDot.className = "status-dot empty";
     pillText.textContent = "No sessions";
     pillCount.textContent = "";
+    pill.dataset.state = "empty";
     return;
   }
 
   const dominant = dominantState(sessions);
   pillDot.className = `status-dot ${dominant}`;
+  pill.dataset.state = dominant;
 
   if (sessions.length === 1) {
     const s = sessions[0];
-    pillText.textContent = `${s.project} · ${s.state}`;
-    pillCount.textContent = s.tool_name ? s.tool_name : "";
+    const label = s.title || s.project;
+    pillText.textContent = `${label} · ${s.state}`;
+    pillCount.textContent = s.tool_name || "";
   } else {
     pillText.textContent = `${sessions.length} sessions`;
     pillCount.textContent = dominant;
   }
 }
 
-// Render dashboard (expanded state)
 function renderDashboard(sessions) {
   sessionCount.textContent = `${sessions.length} active`;
 
@@ -84,12 +167,16 @@ function renderDashboard(sessions) {
   sessionsList.innerHTML = sessions
     .map((s) => {
       const elapsed = formatElapsed(s.started_at);
-      const toolInfo = s.tool_name ? `<span class="session-tool">${escapeHtml(s.tool_name)}</span>` : "";
+      const title = s.title ? `<div class="session-title">${escapeHtml(s.title)}</div>` : "";
+      const toolInfo = s.tool_name
+        ? `<span class="session-tool">${escapeHtml(s.tool_name)}</span>`
+        : "";
       return `
         <div class="session-card">
           <div class="status-dot ${s.state}"></div>
           <div class="session-info">
             <div class="session-project">${escapeHtml(s.project)}</div>
+            ${title}
             <div class="session-detail">
               <span class="session-state ${s.state}">${s.state}</span>
               ${toolInfo}
@@ -108,22 +195,18 @@ function escapeHtml(str) {
   return el.innerHTML;
 }
 
-// Poll backend
+// ===== Polling Fallback =====
+
 async function fetchState() {
   try {
     const res = await fetch(API_URL);
     const data = await res.json();
-    const sessions = data.sessions || [];
-
-    renderPill(sessions);
-    if (isExpanded) {
-      renderDashboard(sessions);
-    }
+    handleStateUpdate(data.sessions || []);
   } catch {
-    // Backend not running — show offline
     pillDot.className = "status-dot empty";
     pillText.textContent = "Backend offline";
     pillCount.textContent = "";
+    pill.dataset.state = "empty";
     if (isExpanded) {
       sessionsList.innerHTML = '<div class="empty-state">Backend offline</div>';
     }
@@ -131,11 +214,76 @@ async function fetchState() {
 }
 
 function restartPolling() {
-  if (pollTimer) clearInterval(pollTimer);
-  const interval = isExpanded ? POLL_EXPANDED : POLL_COLLAPSED;
-  pollTimer = setInterval(fetchState, interval);
-  fetchState(); // immediate
+  stopPolling();
+  pollTimer = setInterval(fetchState, POLL_FALLBACK);
+  fetchState();
 }
 
-// Start
-restartPolling();
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// ===== Confetti =====
+
+function triggerConfetti() {
+  const canvas = document.getElementById("confettiCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  canvas.width = canvas.parentElement.offsetWidth;
+  canvas.height = canvas.parentElement.offsetHeight;
+  canvas.style.display = "block";
+
+  const colors = ["#4ade80", "#60a5fa", "#fb923c", "#c084fc", "#fbbf24", "#f87171"];
+  const particles = [];
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * canvas.width * 0.6,
+      y: -10,
+      vx: (Math.random() - 0.5) * 4,
+      vy: Math.random() * 2 + 1,
+      size: Math.random() * 5 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 10,
+      life: 1,
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      if (p.life <= 0) continue;
+      alive = true;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.08;
+      p.rotation += p.rotSpeed;
+      p.life -= 0.012;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rotation * Math.PI) / 180);
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      ctx.restore();
+    }
+    frame++;
+    if (alive && frame < 120) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = "none";
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+// ===== Init =====
+connectWebSocket();
+restartPolling(); // Start polling immediately, WebSocket will stop it once connected

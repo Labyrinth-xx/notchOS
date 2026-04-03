@@ -44,12 +44,8 @@ struct NotchGeometry {
             )
         }
 
-        let hasNotch: Bool
-
         if let leftArea = screen.auxiliaryTopLeftArea,
            let rightArea = screen.auxiliaryTopRightArea {
-            hasNotch = true
-
             // Use the exact notch gap as the collapsed pill width
             let notchGap    = rightArea.minX - leftArea.maxX
             let notchCenter = (leftArea.maxX + rightArea.minX) / 2
@@ -71,8 +67,6 @@ struct NotchGeometry {
                 expandedFrame:  NSRect(x: expandedX,  y: expandedY,  width: expandedWidth, height: expandedHeight)
             )
         } else {
-            hasNotch = false
-
             // Fallback: floating pill for non-notch displays
             let pillWidth: CGFloat  = 220
             let pillHeight: CGFloat = 32
@@ -95,14 +89,17 @@ struct NotchGeometry {
 
 // MARK: - NotchController
 
-/// Manages the overlay panel, WebView, and hover interactions.
+/// Manages the overlay panel, WebView, hover interactions, and sound.
 final class NotchController: NSObject, WKScriptMessageHandler {
     let panel: OverlayPanel
     let webView: WKWebView
     let geometry: NotchGeometry
     private var isExpanded = false
+    private var isMuted = false
     private var mouseMonitor: Any?
     private var collapseTimer: Timer?
+    private var hoverStartTime: Date?
+    private var lastSoundTime: [String: Date] = [:]  // debounce per sound category
 
     override init() {
         self.geometry = NotchGeometry.detect()
@@ -158,12 +155,21 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         if hoverZone.contains(mouseLocation) {
             collapseTimer?.invalidate()
             collapseTimer = nil
-            expand()
-        } else if isExpanded {
-            // Delay collapse slightly to prevent flickering
-            if collapseTimer == nil {
-                collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
-                    self?.collapse()
+            // Require 0.15s dwell before expanding (prevents accidental trigger from mouse passing through)
+            if hoverStartTime == nil {
+                hoverStartTime = Date()
+            }
+            if !isExpanded, let start = hoverStartTime, Date().timeIntervalSince(start) >= 0.15 {
+                expand()
+            }
+        } else {
+            hoverStartTime = nil
+            if isExpanded {
+                // Slightly longer collapse delay for comfort
+                if collapseTimer == nil {
+                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+                        self?.collapse()
+                    }
                 }
             }
         }
@@ -199,6 +205,30 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         webView.evaluateJavaScript("window.notchSetExpanded(false)", completionHandler: nil)
     }
 
+    // MARK: - Sound
+
+    private static let soundMap: [String: String] = [
+        "complete": "/System/Library/Sounds/Glass.aiff",
+        "error": "/System/Library/Sounds/Sosumi.aiff",
+        "attention": "/System/Library/Sounds/Ping.aiff",
+    ]
+
+    private func playSound(_ name: String) {
+        guard !isMuted else { return }
+
+        // Debounce: same sound category at most once per 3 seconds
+        let now = Date()
+        if let last = lastSoundTime[name], now.timeIntervalSince(last) < 3.0 {
+            return
+        }
+        lastSoundTime[name] = now
+
+        guard let path = Self.soundMap[name],
+              let sound = NSSound(contentsOfFile: path, byReference: true) else { return }
+        sound.volume = 0.4
+        sound.play()
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(
@@ -206,9 +236,26 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         didReceive message: WKScriptMessage
     ) {
         guard let body = message.body as? [String: Any],
-              let action = body["action"] as? String else { return }
+              let type = body["type"] as? String else {
+            // Legacy: support old action-based messages
+            if let body = message.body as? [String: Any],
+               let action = body["action"] as? String {
+                switch action {
+                case "expand": expand()
+                case "collapse": collapse()
+                default: break
+                }
+            }
+            return
+        }
 
-        switch action {
+        switch type {
+        case "playSound":
+            if let value = body["value"] as? String {
+                playSound(value)
+            }
+        case "toggleMute":
+            isMuted = !isMuted
         case "expand":
             expand()
         case "collapse":

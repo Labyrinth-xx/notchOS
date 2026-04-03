@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-# Maps Claude Code hook events to display states
+# Single source of truth: maps Claude Code hook events to display states
 EVENT_TO_STATE: dict[str, str] = {
     "SessionStart": "idle",
     "SessionEnd": "sleeping",
@@ -25,12 +25,12 @@ EVENT_TO_STATE: dict[str, str] = {
 
 
 class HookEvent(BaseModel):
-    """Incoming hook event from Claude Code."""
+    """Incoming hook event from Claude Code (raw, no state mapping)."""
 
     event: str
-    state: str
     session_id: str = "default"
     tool_name: str | None = None
+    title: str | None = None
 
 
 class SessionState(BaseModel):
@@ -41,6 +41,7 @@ class SessionState(BaseModel):
     project: str = "unknown"
     event: str = ""
     tool_name: str | None = None
+    title: str | None = None
     started_at: float = 0.0
     updated_at: float = 0.0
 
