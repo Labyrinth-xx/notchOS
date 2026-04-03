@@ -49,7 +49,7 @@ struct NotchGeometry {
             // Use the exact notch gap as the collapsed pill width
             let notchGap    = rightArea.minX - leftArea.maxX
             let notchCenter = (leftArea.maxX + rightArea.minX) / 2
-            let pillHeight: CGFloat = 36
+            let pillHeight: CGFloat = 30
 
             // Collapsed: pixel-perfect match to the physical notch
             let collapsedX = leftArea.maxX
@@ -98,7 +98,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     private var isMuted = false
     private var mouseMonitor: Any?
     private var collapseTimer: Timer?
-    private var hoverStartTime: Date?
+    private var expandTimer: Timer?
     private var lastSoundTime: [String: Date] = [:]  // debounce per sound category
 
     override init() {
@@ -173,19 +173,25 @@ final class NotchController: NSObject, WKScriptMessageHandler {
                 }
             }
         } else {
-            // Collapsed: approach zone around the pill for easy targeting
-            let hoverZone = geometry.collapsedFrame.insetBy(dx: -20, dy: -12)
+            // Collapsed: trigger only within the notch strip itself (no downward expansion).
+            // Horizontal slack ±20px for easier targeting; dy = 0 prevents accidental
+            // triggers when scrolling near the menu bar.
+            let hoverZone = geometry.collapsedFrame.insetBy(dx: -20, dy: -4)
             if hoverZone.contains(mouseLocation) {
-                collapseTimer?.invalidate()
-                collapseTimer = nil
-                if hoverStartTime == nil {
-                    hoverStartTime = Date()
-                }
-                if let start = hoverStartTime, Date().timeIntervalSince(start) >= 0.15 {
-                    expand()
+                // Schedule expand timer on first entry; mouse can stop moving and it still fires.
+                if expandTimer == nil {
+                    expandTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        self.expandTimer = nil
+                        // Re-verify mouse is still in zone at fire time
+                        if hoverZone.contains(NSEvent.mouseLocation) {
+                            self.expand()
+                        }
+                    }
                 }
             } else {
-                hoverStartTime = nil
+                expandTimer?.invalidate()
+                expandTimer = nil
             }
         }
     }

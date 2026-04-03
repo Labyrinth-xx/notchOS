@@ -172,6 +172,37 @@ bash scripts/bundle.sh
 
 **遗留问题 / 下次继续**
 - 无 LaunchAgent（随系统自启动）
-- 无测试文件
-- Hover 效果待实际使用验证（双区域方案是否够精准）
 - Session title 显示：当前 title 与 project 都显示，可考虑 title 替代 project 而非并排
+- 展开面板高度是否需要动态调整（内容少时不需要 260px）
+
+---
+
+### 2026-04-03 — v0.3 交互体验修复（hover + 面板几何）
+
+**完成内容**
+
+*幽灵区域修复*
+- Dashboard `height: 100%` 未生效（body 无明确高度），导致面板底部有透明区域捕获鼠标但不可见
+- 修复：`html, body { height: 100% }`，`#pill` 和 `#dashboard` 改为 `position: absolute; inset: 0`
+
+*Hover 灵敏度优化*
+- 触发区去掉向下扩展（`dy: -12` → `dy: -4`），仅保留微量向上扩展保证屏幕顶端可触及
+- Dwell 时间 0.15s → 0.4s，需明确停留在刘海上才触发，正常滑动不误触
+
+*Dwell timer 修复*
+- 原实现依赖 `mouseMoved` 事件检测 dwell 时间差，鼠标停住后无事件 → 不触发
+- 改为 `Timer.scheduledTimer(0.4s)` + fire 时重新验证鼠标位置
+
+*Pill 高度缩小*
+- `pillHeight` 36 → 30px，减少收起状态下黑色遮挡区域
+
+*刘海避让*
+- Dashboard `padding-top` 14px → 38px（30px 刘海 + 8px 呼吸），内容不再被物理刘海遮挡
+
+**关键决策**
+- Hover 方案选"缩小触发区 + 延长 dwell"而非"点击切换"：保留 hover 的直觉性，通过精准区域 + 停留阈值消除误触
+- Timer 触发而非事件触发：解决了"鼠标停住不动"的 edge case，macOS global mouse monitor 只在鼠标移动时回调
+
+**当前状态**
+- 已编译并运行，交互体验显著改善
+- 待 git commit
