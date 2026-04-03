@@ -45,45 +45,49 @@ struct NotchGeometry {
         }
 
         let hasNotch: Bool
-        let pillWidth: CGFloat = 240
-        let pillHeight: CGFloat = 32
-        let expandedWidth: CGFloat = 420
-        let expandedHeight: CGFloat = 220
 
         if let leftArea = screen.auxiliaryTopLeftArea,
            let rightArea = screen.auxiliaryTopRightArea {
             hasNotch = true
 
-            // Notch gap: between leftArea.maxX and rightArea.minX
+            // Use the exact notch gap as the collapsed pill width
+            let notchGap    = rightArea.minX - leftArea.maxX
             let notchCenter = (leftArea.maxX + rightArea.minX) / 2
+            let pillHeight: CGFloat = 36
 
-            // Collapsed: pill centered above notch, in menu bar area
-            let collapsedX = notchCenter - pillWidth / 2
+            // Collapsed: pixel-perfect match to the physical notch
+            let collapsedX = leftArea.maxX
             let collapsedY = screen.frame.maxY - pillHeight
 
-            // Expanded: drops down below menu bar
+            // Expanded: grows symmetrically outward and downward from notch
+            let expandedWidth: CGFloat  = notchGap + 200
+            let expandedHeight: CGFloat = 260
             let expandedX = notchCenter - expandedWidth / 2
             let expandedY = screen.frame.maxY - expandedHeight
 
             return NotchGeometry(
-                hasNotch: hasNotch,
-                collapsedFrame: NSRect(x: collapsedX, y: collapsedY, width: pillWidth, height: pillHeight),
-                expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
+                hasNotch: true,
+                collapsedFrame: NSRect(x: collapsedX, y: collapsedY, width: notchGap, height: pillHeight),
+                expandedFrame:  NSRect(x: expandedX,  y: expandedY,  width: expandedWidth, height: expandedHeight)
             )
         } else {
             hasNotch = false
 
-            // Fallback: centered floating bar at top of screen
-            let centerX = screen.frame.midX - pillWidth / 2
-            let topY = screen.frame.maxY - pillHeight - 4
+            // Fallback: floating pill for non-notch displays
+            let pillWidth: CGFloat  = 220
+            let pillHeight: CGFloat = 32
+            let expandedWidth: CGFloat  = 380
+            let expandedHeight: CGFloat = 240
 
+            let centerX   = screen.frame.midX - pillWidth / 2
+            let topY      = screen.frame.maxY - pillHeight - 6
             let expandedX = screen.frame.midX - expandedWidth / 2
-            let expandedY = screen.frame.maxY - expandedHeight - 4
+            let expandedY = screen.frame.maxY - expandedHeight - 6
 
             return NotchGeometry(
-                hasNotch: hasNotch,
-                collapsedFrame: NSRect(x: centerX, y: topY, width: pillWidth, height: pillHeight),
-                expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
+                hasNotch: false,
+                collapsedFrame: NSRect(x: centerX,   y: topY,      width: pillWidth,    height: pillHeight),
+                expandedFrame:  NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
             )
         }
     }
@@ -148,8 +152,8 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         let mouseLocation = NSEvent.mouseLocation
         let hitFrame = isExpanded ? geometry.expandedFrame : geometry.collapsedFrame
 
-        // Add a generous hover zone around the panel
-        let hoverZone = hitFrame.insetBy(dx: -20, dy: -10)
+        // Hover zone extends into notch + surrounding menu bar area
+        let hoverZone = hitFrame.insetBy(dx: -40, dy: -20)
 
         if hoverZone.contains(mouseLocation) {
             collapseTimer?.invalidate()
