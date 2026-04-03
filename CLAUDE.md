@@ -114,3 +114,64 @@ bash scripts/bundle.sh
 - 无 git 仓库（需 `git init`）
 - 无测试文件
 - 无 LaunchAgent（随系统自启动）
+
+---
+
+### 2026-04-03 — v0.2 VibeIsland 启发升级 + hover 修复
+
+**完成内容**
+
+*架构升级*
+- `hook.py` 重构为 fire-and-forget raw socket POST（不阻塞 Claude Code，timeout 0.3s）
+- 消除 `EVENT_TO_STATE` 重复：hook.py 只发 raw event name，backend 唯一做映射
+- hook.py 修复 Content-Length 用字节长度（支持中文 title 不截断）
+
+*WebSocket 实时推送（Phase 1）*
+- FastAPI 新增 `/ws` WebSocket 端点，每次 hook 事件后广播状态给所有连接的 UI 客户端
+- `StateManager` 增加 `broadcast()` 方法（含 set 快照防并发修改 RuntimeError）
+- `app.js` 改为 WebSocket 优先 + 自动 fallback 到 5s 轮询 + 3s 自动重连
+
+*声音通知（Phase 2）*
+- Swift `NSSound` 播放 macOS 系统音效（借鉴 `notify-stop.sh` 已有方案）
+  - 任务完成 → `Glass.aiff`，出错 → `Sosumi.aiff`，需注意 → `Ping.aiff`
+- JS 检测状态转换（working/thinking → idle 触发 complete 音），3s 防抖
+- 与已有 `notify-stop.sh` 互补：notchOS 管实时状态音，notify-stop.sh 管弹窗通知
+
+*Session 信息丰富化（Phase 3）*
+- `hook.py` 捕获首条 prompt 前 60 字作为 session `title`
+- `SessionState` 增加 `title` 字段，首次 UserPromptSubmit 设置后不再覆盖
+- Pill 和 Dashboard 优先显示 title，而非仅项目目录名
+
+*Glow 光晕（Phase 3）*
+- Pill `box-shadow` 随状态变色 + CSS 呼吸动画（蓝/橙/红/黄/紫）
+- 余光可感知状态，不需要直接看 notch
+
+*Confetti 庆祝（Phase 4）*
+- Canvas 彩色粒子动画，dashboard 展开时任务完成触发（1-2s）
+
+*Hover 检测修复*
+- 修复原有单一矩形检测区域过大问题（260×390px 覆盖整个菜单栏区域）
+- 改为双区域检测（参照 VibeIsland `_isMouseInMenuBarZone` + `_isMouseInExpandedPanel`）：
+  - Zone 1（notch strip）：仅 pill 宽度，鼠标在刘海附近维持展开
+  - Zone 2（content area）：展开面板内容区，完整宽度但不含菜单栏
+  - 收起延迟从 0.5s 缩短到 0.15s
+
+*几何优化*
+- Collapsed pill 宽度与物理刘海缝隙精确对齐（动态计算，非硬编码 240px）
+- Pill 背景 `#000` 完美融入刘海
+- Hover 触发增加 0.15s 停留阈值，防止鼠标路过时误展开
+
+**关键决策**
+- 声音走 Swift NSSound 而非 HTML5 Audio：不受 WKWebView autoplay 限制，直接用系统音效无需自备文件
+- 双区域 hover 检测而非单矩形：解决展开面板与菜单栏重叠导致的检测区域过大问题
+
+**当前状态**
+- GitHub: `Labyrinth-xx/notchOS`，4 个 commit，v0.2 已推送
+- Hook 已注册到 `~/.claude/settings.json`（15 个事件）
+- 系统完整运行中：`bash scripts/launch.sh` 启动
+
+**遗留问题 / 下次继续**
+- 无 LaunchAgent（随系统自启动）
+- 无测试文件
+- Hover 效果待实际使用验证（双区域方案是否够精准）
+- Session title 显示：当前 title 与 project 都显示，可考虑 title 替代 project 而非并排
