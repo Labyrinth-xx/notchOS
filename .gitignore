@@ -1,0 +1,21 @@
+# Swift build artifacts
+.build/
+*.o
+*.d
+
+# App bundle (built locally)
+*.app/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/

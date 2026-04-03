@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>notchOS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Collapsed pill -->
+  <div id="pill">
+    <div class="status-dot empty" id="pillDot"></div>
+    <span class="pill-text" id="pillText">No sessions</span>
+    <span class="pill-count" id="pillCount"></span>
+  </div>
+
+  <!-- Expanded dashboard -->
+  <div id="dashboard">
+    <div class="dash-header">
+      <span class="dash-title">Claude Sessions</span>
+      <span class="session-count" id="sessionCount">0 active</span>
+    </div>
+    <div class="sessions-list" id="sessionsList">
+      <div class="empty-state">No active sessions</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
