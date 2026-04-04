@@ -142,6 +142,40 @@ function dominantState(sessions) {
   return "empty";
 }
 
+function injectFreezeKeyframe(capturedShadow) {
+  // Extract RGB values from the current computed box-shadow
+  const colorPattern = /rgba?\((\d+),\s*(\d+),\s*(\d+)/g;
+  const matches = [...capturedShadow.matchAll(colorPattern)];
+  const inner = matches.length >= 1 ? `${matches[0][1]},${matches[0][2]},${matches[0][3]}` : "168,85,247";
+  const outer = matches.length >= 2 ? `${matches[1][1]},${matches[1][2]},${matches[1][3]}` : "90,108,240";
+
+  const lo = `0 0 14px 5px rgba(${inner},0.5), 0 0 32px 12px rgba(${outer},0.25)`;
+  const hi = `0 0 22px 10px rgba(${inner},0.8), 0 0 48px 18px rgba(${outer},0.4)`;
+  const dim = `0 0 6px 2px rgba(${inner},0.1), 0 0 12px 4px rgba(${outer},0.05)`;
+
+  let el = document.getElementById("freeze-style");
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "freeze-style";
+    document.head.appendChild(el);
+  }
+  el.textContent = `
+    @keyframes notification-freeze {
+      0%   { opacity:1; box-shadow:${lo}; }
+      9%   { opacity:1; box-shadow:${hi}; }
+      18%  { opacity:1; box-shadow:${lo}; }
+      27%  { opacity:1; box-shadow:${hi}; }
+      36%  { opacity:1; box-shadow:${lo}; }
+      45%  { opacity:1; box-shadow:${hi}; }
+      54%  { opacity:1; box-shadow:${lo}; }
+      63%  { opacity:1; box-shadow:${hi}; }
+      72%  { opacity:1; box-shadow:${lo}; }
+      81%  { opacity:1; box-shadow:${hi}; }
+      92%  { opacity:0.15; box-shadow:${dim}; }
+      100% { opacity:0; box-shadow:none; }
+    }`;
+}
+
 function renderPill(sessions) {
   if (sessions.length === 0) {
     pillDot.className = "status-dot empty";
@@ -155,6 +189,17 @@ function renderPill(sessions) {
   const dominant = dominantState(sessions);
   pillDot.className = `status-dot ${dominant}`;
   pill.dataset.state = dominant;
+
+  // Notification: freeze aurora at current position, pulse glow in random aurora color
+  if (dominant === "notification") {
+    // Capture current animated values before removing aurora-flow/aurora-glow
+    const computed = getComputedStyle(pillGlow);
+    pillGlow.style.backgroundPosition = computed.backgroundPosition;
+    injectFreezeKeyframe(computed.boxShadow || "");
+  } else {
+    // Clear frozen position so aurora-flow can resume
+    pillGlow.style.backgroundPosition = "";
+  }
   pillGlow.dataset.state = dominant;
 
   if (sessions.length === 1) {

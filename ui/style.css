@@ -126,11 +126,11 @@ body {
 }
 
 
-/* Notification: Claude orange strip + glow halo — 5 pulses then fade */
+/* Notification: aurora freezes in place, blinks on/off like an interrupted machine */
 #pillGlow[data-state="notification"] {
-  background: #DA7756;
+  /* No background override — keeps aurora gradient, frozen (no aurora-flow) */
   opacity: 1;
-  animation: notification-alert 5.5s ease-in-out forwards;
+  animation: notification-freeze 5.5s ease-in-out forwards;
 }
 
 #pill.hidden,
@@ -404,25 +404,5 @@ body {
   100%  { opacity: 0; box-shadow: none; }
 }
 
-/* Notification: Claude orange glow halo pulse */
-
-/* Notification: 5 pulses + fade out — single animation */
-@keyframes notification-alert {
-  /* Pulse 1 */
-  0%    { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
-  9%    { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
-  18%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
-  /* Pulse 2 */
-  27%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
-  36%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
-  /* Pulse 3 */
-  45%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
-  54%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
-  /* Pulse 4 */
-  63%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
-  72%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
-  /* Pulse 5 — peak then fade */
-  81%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
-  92%   { opacity: 0.15; box-shadow: 0 0 4px 1px rgba(218,119,86,0.08), 0 0 8px 2px rgba(218,119,86,0.04); }
-  100%  { opacity: 0; box-shadow: none; }
-}
+/* notification-freeze keyframe is injected dynamically by app.js
+   with a random aurora glow color each time */
