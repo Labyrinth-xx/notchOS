@@ -7,11 +7,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Collapsed pill -->
+  <!-- Aurora glow layer (behind pill) -->
+  <div id="pillGlow"></div>
+
+  <!-- Collapsed pill with wings -->
   <div id="pill">
-    <div class="status-dot empty" id="pillDot"></div>
-    <span class="pill-text" id="pillText">No sessions</span>
-    <span class="pill-count" id="pillCount"></span>
+    <div class="wing wing-left" id="wingLeft"></div>
+    <div class="pill-center">
+      <div class="status-dot empty" id="pillDot"></div>
+      <span class="pill-text" id="pillText">No sessions</span>
+      <span class="pill-count" id="pillCount"></span>
+    </div>
+    <div class="wing wing-right" id="wingRight"></div>
   </div>
 
   <!-- Expanded dashboard -->

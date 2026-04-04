@@ -5,6 +5,12 @@
 
 const WS_URL = "ws://127.0.0.1:23456/ws";
 const API_URL = "http://127.0.0.1:23456/api/state";
+
+// Agent identity map — mirrors backend AGENT_META.
+// Add new agents here when they're added to backend/models.py.
+const AGENT_META = {
+  "claude-code": { label: "CC", color: "#F59E0B" },
+};
 const POLL_FALLBACK = 5000;
 const RECONNECT_DELAY = 3000;
 
@@ -24,6 +30,9 @@ const pillCount = document.getElementById("pillCount");
 const dashboard = document.getElementById("dashboard");
 const sessionCount = document.getElementById("sessionCount");
 const sessionsList = document.getElementById("sessionsList");
+const wingLeft = document.getElementById("wingLeft");
+const wingRight = document.getElementById("wingRight");
+const pillGlow = document.getElementById("pillGlow");
 
 // ===== Swift Bridge =====
 
@@ -31,6 +40,7 @@ const sessionsList = document.getElementById("sessionsList");
 window.notchSetExpanded = function (expanded) {
   isExpanded = expanded;
   pill.classList.toggle("hidden", expanded);
+  pillGlow.classList.toggle("hidden", expanded);
   dashboard.classList.toggle("visible", expanded);
   if (!wsConnected) restartPolling();
 };
@@ -138,12 +148,14 @@ function renderPill(sessions) {
     pillText.textContent = "No sessions";
     pillCount.textContent = "";
     pill.dataset.state = "empty";
+    pillGlow.dataset.state = "empty";
     return;
   }
 
   const dominant = dominantState(sessions);
   pillDot.className = `status-dot ${dominant}`;
   pill.dataset.state = dominant;
+  pillGlow.dataset.state = dominant;
 
   if (sessions.length === 1) {
     const s = sessions[0];
@@ -154,6 +166,14 @@ function renderPill(sessions) {
     pillText.textContent = `${sessions.length} sessions`;
     pillCount.textContent = dominant;
   }
+}
+
+function agentBadge(session) {
+  const meta = AGENT_META[session.agent] ?? {
+    label: (session.agent_label || (session.agent || "?").slice(0, 2).toUpperCase()),
+    color: session.agent_color || "#888",
+  };
+  return `<span class="agent-badge" style="background:${meta.color}" title="${escapeHtml(session.agent || "")}">${meta.label}</span>`;
 }
 
 function renderDashboard(sessions) {
@@ -171,9 +191,11 @@ function renderDashboard(sessions) {
       const toolInfo = s.tool_name
         ? `<span class="session-tool">${escapeHtml(s.tool_name)}</span>`
         : "";
+      const agentColor = (AGENT_META[s.agent] ?? { color: s.agent_color || "#888" }).color;
       return `
-        <div class="session-card">
+        <div class="session-card" style="--agent-color:${agentColor}">
           <div class="status-dot ${s.state}"></div>
+          ${agentBadge(s)}
           <div class="session-info">
             <div class="session-project">${escapeHtml(s.project)}</div>
             ${title}
@@ -207,6 +229,7 @@ async function fetchState() {
     pillText.textContent = "Backend offline";
     pillCount.textContent = "";
     pill.dataset.state = "empty";
+    pillGlow.dataset.state = "empty";
     if (isExpanded) {
       sessionsList.innerHTML = '<div class="empty-state">Backend offline</div>';
     }

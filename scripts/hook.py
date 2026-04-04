@@ -48,6 +48,7 @@ body_bytes = json.dumps({
     "session_id": session_id,
     "tool_name": tool_name,
     "title": title,
+    "agent": "claude-code",
 }).encode()
 
 # Fire-and-forget: raw socket POST, don't wait for response

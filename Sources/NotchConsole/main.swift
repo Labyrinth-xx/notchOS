@@ -32,28 +32,50 @@ final class OverlayPanel: NSPanel {
 
 struct NotchGeometry {
     let hasNotch: Bool
-    let collapsedFrame: NSRect
+    let wingWidth: CGFloat
+    let notchGap: CGFloat
+    let glowPad: CGFloat
+    let pillFrame: NSRect       // the visual pill rectangle (for hover detection)
+    let collapsedFrame: NSRect  // panel frame = pill + glow padding
     let expandedFrame: NSRect
 
     static func detect() -> NotchGeometry {
+        let wingWidth: CGFloat = 0   // collapsed = match physical notch exactly
+        let glowPad: CGFloat = 44   // extra transparent padding for aurora glow to spill out
+
         guard let screen = NSScreen.main else {
+            let centerWidth: CGFloat = 220
+            let pillW = centerWidth + wingWidth * 2
+            let pillH: CGFloat = 32
+            let pillRect = NSRect(x: 100 + glowPad, y: 100 + glowPad, width: pillW, height: pillH)
             return NotchGeometry(
                 hasNotch: false,
-                collapsedFrame: NSRect(x: 100, y: 100, width: 240, height: 32),
+                wingWidth: wingWidth,
+                notchGap: centerWidth,
+                glowPad: glowPad,
+                pillFrame: pillRect,
+                collapsedFrame: NSRect(x: 100, y: 100, width: pillW + glowPad * 2, height: pillH + glowPad),
                 expandedFrame: NSRect(x: 100, y: 100, width: 420, height: 220)
             )
         }
 
         if let leftArea = screen.auxiliaryTopLeftArea,
            let rightArea = screen.auxiliaryTopRightArea {
-            // Use the exact notch gap as the collapsed pill width
             let notchGap    = rightArea.minX - leftArea.maxX
             let notchCenter = (leftArea.maxX + rightArea.minX) / 2
-            let pillHeight: CGFloat = 30
+            let pillHeight: CGFloat = 32
 
-            // Collapsed: pixel-perfect match to the physical notch
-            let collapsedX = leftArea.maxX
-            let collapsedY = screen.frame.maxY - pillHeight
+            // Pill: visual rectangle (notch gap + wings)
+            let pillWidth = notchGap + wingWidth * 2
+            let pillX = leftArea.maxX - wingWidth
+            let pillY = screen.frame.maxY - pillHeight
+            let pillRect = NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight)
+
+            // Collapsed panel: pill + glow padding on left, right, bottom
+            let collapsedX = pillX - glowPad
+            let collapsedY = pillY - glowPad  // extra space below pill
+            let collapsedWidth = pillWidth + glowPad * 2
+            let collapsedHeight = pillHeight + glowPad  // top flush with screen
 
             // Expanded: grows symmetrically outward and downward from notch
             let expandedWidth: CGFloat  = notchGap + 200
@@ -63,24 +85,37 @@ struct NotchGeometry {
 
             return NotchGeometry(
                 hasNotch: true,
-                collapsedFrame: NSRect(x: collapsedX, y: collapsedY, width: notchGap, height: pillHeight),
+                wingWidth: wingWidth,
+                notchGap: notchGap,
+                glowPad: glowPad,
+                pillFrame: pillRect,
+                collapsedFrame: NSRect(x: collapsedX, y: collapsedY, width: collapsedWidth, height: collapsedHeight),
                 expandedFrame:  NSRect(x: expandedX,  y: expandedY,  width: expandedWidth, height: expandedHeight)
             )
         } else {
             // Fallback: floating pill for non-notch displays
-            let pillWidth: CGFloat  = 220
+            let centerWidth: CGFloat = 220
+            let pillWidth = centerWidth + wingWidth * 2
             let pillHeight: CGFloat = 32
             let expandedWidth: CGFloat  = 380
             let expandedHeight: CGFloat = 240
 
-            let centerX   = screen.frame.midX - pillWidth / 2
-            let topY      = screen.frame.maxY - pillHeight - 6
+            let pillX = screen.frame.midX - pillWidth / 2
+            let pillY = screen.frame.maxY - pillHeight - 6
+            let pillRect = NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight)
+
+            let centerX   = pillX - glowPad
+            let topY      = pillY - glowPad
             let expandedX = screen.frame.midX - expandedWidth / 2
             let expandedY = screen.frame.maxY - expandedHeight - 6
 
             return NotchGeometry(
                 hasNotch: false,
-                collapsedFrame: NSRect(x: centerX,   y: topY,      width: pillWidth,    height: pillHeight),
+                wingWidth: wingWidth,
+                notchGap: centerWidth,
+                glowPad: glowPad,
+                pillFrame: pillRect,
+                collapsedFrame: NSRect(x: centerX, y: topY, width: pillWidth + glowPad * 2, height: pillHeight + glowPad),
                 expandedFrame:  NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
             )
         }
@@ -123,7 +158,8 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         panel.contentView = webView
         panel.setFrame(geometry.collapsedFrame, display: true)
 
-        // Load the web UI
+        // Load the web UI; inject geometry CSS variables on load
+        webView.navigationDelegate = self
         let url = URL(string: "http://127.0.0.1:23456/ui/index.html")!
         webView.load(URLRequest(url: url))
 
@@ -149,17 +185,15 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         let mouseLocation = NSEvent.mouseLocation
 
         if isExpanded {
-            // Two-zone detection (like VibeIsland):
-            // Zone 1 — Notch strip: narrow area at screen top (pill width only)
-            //          Keeps panel open when mouse is in the notch area
-            // Zone 2 — Content area: the visible dashboard below the notch
-            //          Full expanded width, from notch bottom to panel bottom
-            let notchZone = geometry.collapsedFrame
+            // Two-zone detection:
+            // Zone 1 — Notch strip (pill area)
+            // Zone 2 — Content area: dashboard below the notch
+            let notchZone = geometry.pillFrame
             let contentZone = NSRect(
                 x: geometry.expandedFrame.minX,
                 y: geometry.expandedFrame.minY,
                 width: geometry.expandedFrame.width,
-                height: geometry.collapsedFrame.minY - geometry.expandedFrame.minY
+                height: geometry.pillFrame.minY - geometry.expandedFrame.minY
             )
 
             let isInPanel = notchZone.contains(mouseLocation) || contentZone.contains(mouseLocation)
@@ -176,7 +210,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
             // Collapsed: trigger only within the notch strip itself (no downward expansion).
             // Horizontal slack ±20px for easier targeting; dy = 0 prevents accidental
             // triggers when scrolling near the menu bar.
-            let hoverZone = geometry.collapsedFrame.insetBy(dx: -20, dy: -4)
+            let hoverZone = geometry.pillFrame.insetBy(dx: -20, dy: -4)
             if hoverZone.contains(mouseLocation) {
                 // Schedule expand timer on first entry; mouse can stop moving and it still fires.
                 if expandTimer == nil {
@@ -284,6 +318,20 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         default:
             break
         }
+    }
+}
+
+// MARK: - WKNavigationDelegate (inject geometry CSS variables)
+
+extension NotchController: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        let js = """
+        document.documentElement.style.setProperty('--wing-width', '\(Int(geometry.wingWidth))px');
+        document.documentElement.style.setProperty('--notch-gap', '\(Int(geometry.notchGap))px');
+        document.documentElement.style.setProperty('--glow-pad', '\(Int(geometry.glowPad))px');
+        document.documentElement.style.setProperty('--has-notch', '\(geometry.hasNotch ? 1 : 0)');
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
 }
 

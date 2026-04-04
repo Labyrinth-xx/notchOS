@@ -10,12 +10,13 @@ from pathlib import Path
 
 from fastapi import WebSocket
 
-from backend.models import HookEvent, NotchResponse, SessionState
+from backend.models import AGENT_META, HookEvent, NotchResponse, SessionState
 
 logger = logging.getLogger(__name__)
 
 SESSIONS_DIR = Path.home() / ".claude" / "sessions"
-IDLE_TTL_SECONDS = 300  # 5 minutes
+IDLE_TTL_SECONDS = 300       # 5 minutes
+ATTENTION_TTL_SECONDS = 3    # 3 seconds — auto-downgrade to idle
 
 
 class StateManager:
@@ -25,6 +26,7 @@ class StateManager:
         self._sessions: dict[str, SessionState] = {}
         self._lock = asyncio.Lock()
         self._ws_clients: set[WebSocket] = set()
+        self._attention_tasks: dict[str, asyncio.Task] = {}
 
     async def handle_hook(self, event: HookEvent, state: str) -> SessionState:
         """Update session state from a hook event. Returns updated state."""
@@ -32,7 +34,10 @@ class StateManager:
         async with self._lock:
             existing = self._sessions.get(event.session_id)
             if existing is None:
-                project = _resolve_project(event.session_id)
+                project = _resolve_project(event.session_id, cwd=event.cwd)
+                meta = AGENT_META.get(event.agent, {})
+                agent_label = meta.get("label", event.agent[:2].upper())
+                agent_color = meta.get("color", "#888888")
                 session = SessionState(
                     session_id=event.session_id,
                     state=state,
@@ -40,6 +45,9 @@ class StateManager:
                     event=event.event,
                     tool_name=event.tool_name,
                     title=event.title,
+                    agent=event.agent,
+                    agent_label=agent_label,
+                    agent_color=agent_color,
                     started_at=now,
                     updated_at=now,
                 )
@@ -60,7 +68,28 @@ class StateManager:
             else:
                 self._sessions[event.session_id] = session
 
+            # Cancel any pending attention downgrade for this session
+            old_task = self._attention_tasks.pop(event.session_id, None)
+            if old_task:
+                old_task.cancel()
+
+            # Schedule auto-downgrade if entering attention state
+            if state == "attention":
+                self._attention_tasks[event.session_id] = asyncio.create_task(
+                    self._downgrade_attention(event.session_id)
+                )
+
             return session
+
+    async def _downgrade_attention(self, session_id: str) -> None:
+        """After ATTENTION_TTL, downgrade attention → idle and broadcast."""
+        await asyncio.sleep(ATTENTION_TTL_SECONDS)
+        async with self._lock:
+            s = self._sessions.get(session_id)
+            if s and s.state == "attention":
+                self._sessions[session_id] = s.model_copy(update={"state": "idle"})
+        self._attention_tasks.pop(session_id, None)
+        await self.broadcast()
 
     async def broadcast(self) -> None:
         """Push current state to all connected WebSocket clients."""
@@ -84,7 +113,7 @@ class StateManager:
         self._ws_clients.discard(ws)
 
     async def get_all(self) -> list[SessionState]:
-        """Return all active sessions, pruning stale ones."""
+        """Return all active sessions, pruning stale ones and downgrading attention."""
         now = time.time()
         async with self._lock:
             stale_ids = [
@@ -96,11 +125,19 @@ class StateManager:
             for sid in stale_ids:
                 del self._sessions[sid]
 
+            # Auto-downgrade attention → idle after short timeout
+            for sid, s in self._sessions.items():
+                if s.state == "attention" and (now - s.updated_at) > ATTENTION_TTL_SECONDS:
+                    self._sessions[sid] = s.model_copy(update={"state": "idle"})
+
             return list(self._sessions.values())
 
 
-def _resolve_project(session_id: str) -> str:
-    """Try to resolve project name from Claude session metadata."""
+def _resolve_project(session_id: str, cwd: str | None = None) -> str:
+    """Resolve project name from cwd hint or Claude session metadata."""
+    if cwd:
+        return Path(cwd).name or "unknown"
+
     if not SESSIONS_DIR.is_dir():
         return "unknown"
 
@@ -110,8 +147,8 @@ def _resolve_project(session_id: str) -> str:
         try:
             data = json.loads(path.read_text())
             if data.get("sessionId") == session_id:
-                cwd = data.get("cwd", "")
-                return Path(cwd).name if cwd else "unknown"
+                session_cwd = data.get("cwd", "")
+                return Path(session_cwd).name if session_cwd else "unknown"
         except (json.JSONDecodeError, OSError):
             continue
 

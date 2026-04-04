@@ -6,6 +6,7 @@
 
 html {
   height: 100%;
+  background: transparent;
 }
 
 :root {
@@ -32,53 +33,112 @@ body {
   -webkit-user-select: none;
   height: 100%;
   position: relative;
+  /* No clip-path — glow renders in the transparent padding area */
 }
 
 /* ===== Collapsed Pill (Dynamic Island) ===== */
 
 #pill {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: var(--glow-pad, 20px);
+  right: var(--glow-pad, 20px);
+  height: 32px;
+  display: flex;
+  align-items: center;
+  /* Solid black — blends seamlessly with the physical notch */
+  background: #000;
+  border-radius: 0 0 12px 12px;
+  z-index: 1; /* above glow layer */
+  transition: opacity 0.15s ease;
+}
+
+/* ===== Aurora Glow — separate element behind pill ===== */
+
+#pillGlow {
+  position: absolute;
+  /* 3px larger than pill on each side — pill covers center, leaving a solid light strip */
+  top: 0;
+  left: calc(var(--glow-pad, 20px) - 3px);
+  right: calc(var(--glow-pad, 20px) - 3px);
+  height: 35px;                                       /* 32px pill + 3px bottom */
+  border-radius: 0 0 14px 14px;                       /* pill 12px + 2px to keep proportional curve */
+  /* Seamless rainbow — flows as a solid light strip */
+  background: linear-gradient(90deg,
+    #3b82f6  0%,    /* sapphire blue */
+    #7c6cf0  7%,    /* blue → violet */
+    #a855f7 14%,    /* violet */
+    #d462c8 21%,    /* violet → pink */
+    #ec4899 28%,    /* pink */
+    #f05670 35%,    /* pink → red */
+    #ef4444 43%,    /* red */
+    #f56b3f 50%,    /* red → orange */
+    #fb923c 57%,    /* orange */
+    #fba82e 64%,    /* orange → amber */
+    #fbbf24 71%,    /* amber yellow */
+    #88bc58 78%,    /* amber → teal */
+    #14b8a6 86%,    /* teal */
+    #2899ae 93%,    /* teal → blue */
+    #3b82f6 100%    /* blue — seamless loop */
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 0.5s ease, background 0.5s ease;
+  pointer-events: none;
+}
+
+/* Wings: hidden in default state, reserved for future dynamic island expansion */
+.wing {
+  width: var(--wing-width, 0px);
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Center: the notch-aligned content area */
+.pill-center {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 0 14px;
-  /* Solid black — blends seamlessly with the physical notch */
-  background: #000;
-  border-radius: 0 0 12px 12px;
-  transition: opacity 0.15s ease, box-shadow 0.5s ease;
+  min-width: 0;
 }
 
-/* ===== Glow Effect — status visible from peripheral vision ===== */
+/* ===== Aurora state controls ===== */
 
-#pill[data-state="thinking"] {
-  box-shadow: 0 2px 12px rgba(96, 165, 250, 0.35), 0 0 20px rgba(96, 165, 250, 0.15);
-  animation: glow-blue 2s ease-in-out infinite;
-}
-#pill[data-state="working"] {
-  box-shadow: 0 2px 12px rgba(251, 146, 60, 0.35), 0 0 20px rgba(251, 146, 60, 0.15);
-  animation: glow-orange 2.5s ease-in-out infinite;
-}
-#pill[data-state="error"], #pill[data-state="attention"] {
-  box-shadow: 0 2px 16px rgba(248, 113, 113, 0.5), 0 0 24px rgba(248, 113, 113, 0.2);
-  animation: glow-red 1s ease-in-out infinite;
-}
-#pill[data-state="notification"] {
-  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35), 0 0 20px rgba(251, 191, 36, 0.15);
-  animation: glow-yellow 1.5s ease-in-out infinite;
-}
-#pill[data-state="juggling"] {
-  box-shadow: 0 2px 12px rgba(192, 132, 252, 0.35), 0 0 20px rgba(192, 132, 252, 0.15);
-  animation: glow-purple 2s ease-in-out infinite;
-}
-#pill[data-state="idle"], #pill[data-state="sleeping"], #pill[data-state="empty"] {
-  box-shadow: none;
-  animation: none;
+/* Active states: aurora flow + outer glow halo */
+#pillGlow[data-state="thinking"],
+#pillGlow[data-state="working"],
+#pillGlow[data-state="juggling"],
+#pillGlow[data-state="sweeping"],
+#pillGlow[data-state="carrying"] {
+  opacity: 1;
+  animation: aurora-flow 3s linear infinite, aurora-glow 4s ease-in-out infinite;
 }
 
-#pill.hidden {
-  opacity: 0;
+/* Error/attention: solid red strip + red glow halo, both fade out together */
+#pillGlow[data-state="error"],
+#pillGlow[data-state="attention"] {
+  background: rgba(239, 68, 68, 1);
+  opacity: 1;
+  animation: red-glow 0.7s ease-in-out 3, red-fade 2.1s ease-in forwards;
+}
+
+/* Notification: orange glow pulse */
+#pillGlow[data-state="notification"] {
+  background: rgba(251, 146, 60, 1);
+  opacity: 1;
+  animation: aurora-pulse 1.5s ease-in-out infinite;
+}
+
+#pill.hidden,
+#pillGlow.hidden {
+  opacity: 0 !important;
   pointer-events: none;
 }
 
@@ -178,6 +238,23 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
   border: 1px solid var(--border);
+  border-left: 2px solid var(--agent-color, var(--border));
+}
+
+/* Agent badge: 2-letter abbreviation with brand color background */
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: "SF Mono", "Menlo", monospace;
+  color: #000;
+  flex-shrink: 0;
+  letter-spacing: -0.3px;
 }
 
 .session-info {
@@ -278,29 +355,64 @@ body {
   50% { opacity: 0.6; transform: scale(0.85); }
 }
 
-/* Glow breathing animations for pill */
+/* Aurora: flowing rainbow — background-position scrolls to simulate light movement */
 
-@keyframes glow-blue {
-  0%, 100% { box-shadow: 0 2px 12px rgba(96, 165, 250, 0.35), 0 0 20px rgba(96, 165, 250, 0.15); }
-  50% { box-shadow: 0 2px 18px rgba(96, 165, 250, 0.55), 0 0 30px rgba(96, 165, 250, 0.25); }
+@keyframes aurora-flow {
+  0%   { background-position: 100% 0%; }
+  100% { background-position: -100% 0%; }
 }
 
-@keyframes glow-orange {
-  0%, 100% { box-shadow: 0 2px 12px rgba(251, 146, 60, 0.35), 0 0 20px rgba(251, 146, 60, 0.15); }
-  50% { box-shadow: 0 2px 18px rgba(251, 146, 60, 0.55), 0 0 30px rgba(251, 146, 60, 0.25); }
+/* Outer glow halo — color-shifting soft light behind the strip */
+@keyframes aurora-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 2px rgba(59, 130, 246, 0.5),
+      0 0 18px 5px rgba(139, 92, 246, 0.25);
+  }
+  25% {
+    box-shadow:
+      0 0 8px 2px rgba(236, 72, 153, 0.5),
+      0 0 18px 5px rgba(239, 68, 68, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 8px 2px rgba(251, 191, 36, 0.5),
+      0 0 18px 5px rgba(251, 146, 60, 0.25);
+  }
+  75% {
+    box-shadow:
+      0 0 8px 2px rgba(20, 184, 166, 0.5),
+      0 0 18px 5px rgba(74, 222, 128, 0.25);
+  }
 }
 
-@keyframes glow-red {
-  0%, 100% { box-shadow: 0 2px 16px rgba(248, 113, 113, 0.5), 0 0 24px rgba(248, 113, 113, 0.2); }
-  50% { box-shadow: 0 2px 24px rgba(248, 113, 113, 0.7), 0 0 36px rgba(248, 113, 113, 0.35); }
+/* Red glow halo — pulsing outward glow around the red strip */
+
+/* Red strip fade out — synced to total pulse duration */
+@keyframes red-fade {
+  0%, 85% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
-@keyframes glow-yellow {
-  0%, 100% { box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35), 0 0 20px rgba(251, 191, 36, 0.15); }
-  50% { box-shadow: 0 2px 18px rgba(251, 191, 36, 0.55), 0 0 30px rgba(251, 191, 36, 0.25); }
+@keyframes red-glow {
+  0% {
+    box-shadow:
+      0 0 6px 1px rgba(239, 68, 68, 0.3),
+      0 0 12px 3px rgba(185, 28, 28, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 10px 3px rgba(239, 68, 68, 0.6),
+      0 0 22px 6px rgba(185, 28, 28, 0.3);
+  }
+  100% {
+    box-shadow: none;
+  }
 }
 
-@keyframes glow-purple {
-  0%, 100% { box-shadow: 0 2px 12px rgba(192, 132, 252, 0.35), 0 0 20px rgba(192, 132, 252, 0.15); }
-  50% { box-shadow: 0 2px 18px rgba(192, 132, 252, 0.55), 0 0 30px rgba(192, 132, 252, 0.25); }
+/* Notification pulse: scale throb */
+
+@keyframes aurora-pulse {
+  0%, 100% { transform: scale(0.95); }
+  50% { transform: scale(1.03); }
 }
