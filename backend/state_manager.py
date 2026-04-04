@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 SESSIONS_DIR = Path.home() / ".claude" / "sessions"
 IDLE_TTL_SECONDS = 300       # 5 minutes
-ATTENTION_TTL_SECONDS = 3    # 3 seconds — auto-downgrade to idle
+ATTENTION_TTL_SECONDS = 3.6  # matches CSS red-alert animation (3.5s) + 0.1s margin
+NOTIFICATION_TTL_SECONDS = 5.6  # matches CSS notification-alert (5.5s) + 0.1s margin
 
 
 class StateManager:
@@ -27,6 +28,7 @@ class StateManager:
         self._lock = asyncio.Lock()
         self._ws_clients: set[WebSocket] = set()
         self._attention_tasks: dict[str, asyncio.Task] = {}
+        self._downgrade_epoch: dict[str, int] = {}  # epoch counter per session to prevent stale downgrades
 
     async def handle_hook(self, event: HookEvent, state: str) -> SessionState:
         """Update session state from a hook event. Returns updated state."""
@@ -68,25 +70,36 @@ class StateManager:
             else:
                 self._sessions[event.session_id] = session
 
-            # Cancel any pending attention downgrade for this session
+            # Cancel any pending downgrade for this session
             old_task = self._attention_tasks.pop(event.session_id, None)
             if old_task:
                 old_task.cancel()
 
-            # Schedule auto-downgrade if entering attention state
+            # Bump epoch so stale tasks won't downgrade
+            epoch = self._downgrade_epoch.get(event.session_id, 0) + 1
+            self._downgrade_epoch[event.session_id] = epoch
+
+            # Schedule auto-downgrade if entering attention or notification state
             if state == "attention":
                 self._attention_tasks[event.session_id] = asyncio.create_task(
-                    self._downgrade_attention(event.session_id)
+                    self._downgrade_state(event.session_id, "attention", ATTENTION_TTL_SECONDS, epoch)
+                )
+            elif state == "notification":
+                self._attention_tasks[event.session_id] = asyncio.create_task(
+                    self._downgrade_state(event.session_id, "notification", NOTIFICATION_TTL_SECONDS, epoch)
                 )
 
             return session
 
-    async def _downgrade_attention(self, session_id: str) -> None:
-        """After ATTENTION_TTL, downgrade attention → idle and broadcast."""
-        await asyncio.sleep(ATTENTION_TTL_SECONDS)
+    async def _downgrade_state(self, session_id: str, from_state: str, ttl: float, epoch: int) -> None:
+        """After TTL, downgrade from_state → idle and broadcast. Skips if epoch is stale."""
+        await asyncio.sleep(ttl)
         async with self._lock:
+            # Only downgrade if this is still the latest epoch for this session
+            if self._downgrade_epoch.get(session_id) != epoch:
+                return
             s = self._sessions.get(session_id)
-            if s and s.state == "attention":
+            if s and s.state == from_state:
                 self._sessions[session_id] = s.model_copy(update={"state": "idle"})
         self._attention_tasks.pop(session_id, None)
         await self.broadcast()
@@ -125,9 +138,11 @@ class StateManager:
             for sid in stale_ids:
                 del self._sessions[sid]
 
-            # Auto-downgrade attention → idle after short timeout
+            # Auto-downgrade attention/notification → idle after short timeout
             for sid, s in self._sessions.items():
                 if s.state == "attention" and (now - s.updated_at) > ATTENTION_TTL_SECONDS:
+                    self._sessions[sid] = s.model_copy(update={"state": "idle"})
+                elif s.state == "notification" and (now - s.updated_at) > NOTIFICATION_TTL_SECONDS:
                     self._sessions[sid] = s.model_copy(update={"state": "idle"})
 
             return list(self._sessions.values())

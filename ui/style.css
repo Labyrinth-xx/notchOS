@@ -63,23 +63,19 @@ body {
   right: calc(var(--glow-pad, 20px) - 3px);
   height: 35px;                                       /* 32px pill + 3px bottom */
   border-radius: 0 0 14px 14px;                       /* pill 12px + 2px to keep proportional curve */
-  /* Seamless rainbow — flows as a solid light strip */
+  /* Apple-style light strip — blue → indigo → purple → pink → red → orange → amber → cyan → blue */
   background: linear-gradient(90deg,
-    #3b82f6  0%,    /* sapphire blue */
-    #7c6cf0  7%,    /* blue → violet */
-    #a855f7 14%,    /* violet */
-    #d462c8 21%,    /* violet → pink */
-    #ec4899 28%,    /* pink */
-    #f05670 35%,    /* pink → red */
-    #ef4444 43%,    /* red */
-    #f56b3f 50%,    /* red → orange */
-    #fb923c 57%,    /* orange */
-    #fba82e 64%,    /* orange → amber */
-    #fbbf24 71%,    /* amber yellow */
-    #88bc58 78%,    /* amber → teal */
-    #14b8a6 86%,    /* teal */
-    #2899ae 93%,    /* teal → blue */
-    #3b82f6 100%    /* blue — seamless loop */
+    #4a8af4  0%,    /* sky blue */
+    #5a6cf0  10%,   /* blue → indigo */
+    #8b5cf6  20%,   /* indigo */
+    #a855f7  30%,   /* purple */
+    #d946a8  40%,   /* magenta pink */
+    #ef4444  50%,   /* red */
+    #f97316  60%,   /* orange */
+    #fbbf24  70%,   /* amber gold */
+    #36a3c2  80%,   /* cyan blue */
+    #5a8ae6  90%,   /* mid blue */
+    #4a8af4  100%   /* sky blue — seamless loop */
   );
   background-size: 200% 100%;
   opacity: 0;
@@ -118,22 +114,23 @@ body {
 #pillGlow[data-state="sweeping"],
 #pillGlow[data-state="carrying"] {
   opacity: 1;
-  animation: aurora-flow 3s linear infinite, aurora-glow 4s ease-in-out infinite;
+  animation: aurora-flow 3s linear infinite, aurora-glow 3s linear infinite;
 }
 
-/* Error/attention: solid red strip + red glow halo, both fade out together */
+/* Error/attention: red strip + 3 glow pulses then fade out */
 #pillGlow[data-state="error"],
 #pillGlow[data-state="attention"] {
-  background: rgba(239, 68, 68, 1);
+  background: #ef4444;
   opacity: 1;
-  animation: red-glow 0.7s ease-in-out 3, red-fade 2.1s ease-in forwards;
+  animation: red-alert 3.5s ease-in-out forwards;
 }
 
-/* Notification: orange glow pulse */
+
+/* Notification: Claude orange strip + glow halo — 5 pulses then fade */
 #pillGlow[data-state="notification"] {
-  background: rgba(251, 146, 60, 1);
+  background: #DA7756;
   opacity: 1;
-  animation: aurora-pulse 1.5s ease-in-out infinite;
+  animation: notification-alert 5.5s ease-in-out forwards;
 }
 
 #pill.hidden,
@@ -362,57 +359,73 @@ body {
   100% { background-position: -100% 0%; }
 }
 
-/* Outer glow halo — color-shifting soft light behind the strip */
+/* Outer glow halo — synced with aurora-flow gradient (same 3s cycle, matching color order) */
 @keyframes aurora-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 8px 2px rgba(59, 130, 246, 0.5),
-      0 0 18px 5px rgba(139, 92, 246, 0.25);
-  }
-  25% {
-    box-shadow:
-      0 0 8px 2px rgba(236, 72, 153, 0.5),
-      0 0 18px 5px rgba(239, 68, 68, 0.25);
-  }
-  50% {
-    box-shadow:
-      0 0 8px 2px rgba(251, 191, 36, 0.5),
-      0 0 18px 5px rgba(251, 146, 60, 0.25);
-  }
-  75% {
-    box-shadow:
-      0 0 8px 2px rgba(20, 184, 166, 0.5),
-      0 0 18px 5px rgba(74, 222, 128, 0.25);
-  }
-}
-
-/* Red glow halo — pulsing outward glow around the red strip */
-
-/* Red strip fade out — synced to total pulse duration */
-@keyframes red-fade {
-  0%, 85% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-@keyframes red-glow {
   0% {
-    box-shadow:
-      0 0 6px 1px rgba(239, 68, 68, 0.3),
-      0 0 12px 3px rgba(185, 28, 28, 0.15);
+    /* blue — matches gradient start */
+    box-shadow: 0 0 8px 2px rgba(74,138,244,0.5), 0 0 18px 5px rgba(90,108,240,0.25);
   }
-  50% {
-    box-shadow:
-      0 0 10px 3px rgba(239, 68, 68, 0.6),
-      0 0 22px 6px rgba(185, 28, 28, 0.3);
+  20% {
+    /* purple/pink — matches gradient ~20-40% */
+    box-shadow: 0 0 8px 2px rgba(168,85,247,0.5), 0 0 18px 5px rgba(217,70,168,0.25);
+  }
+  40% {
+    /* red — matches gradient ~50% */
+    box-shadow: 0 0 8px 2px rgba(239,68,68,0.5), 0 0 18px 5px rgba(249,115,22,0.25);
+  }
+  60% {
+    /* orange/amber — matches gradient ~60-70% */
+    box-shadow: 0 0 8px 2px rgba(251,191,36,0.5), 0 0 18px 5px rgba(249,115,22,0.25);
+  }
+  80% {
+    /* cyan — matches gradient ~80% */
+    box-shadow: 0 0 8px 2px rgba(54,163,194,0.5), 0 0 18px 5px rgba(90,138,230,0.25);
   }
   100% {
-    box-shadow: none;
+    /* back to blue — seamless loop */
+    box-shadow: 0 0 8px 2px rgba(74,138,244,0.5), 0 0 18px 5px rgba(90,108,240,0.25);
   }
 }
 
-/* Notification pulse: scale throb */
 
-@keyframes aurora-pulse {
-  0%, 100% { transform: scale(0.95); }
-  50% { transform: scale(1.03); }
+/* Red alert: 3 pulses, fade starts at pulse 3 peak (~64%), 1s fade out to 100% */
+@keyframes red-alert {
+  /* Aurora visible, no glow yet */
+  0%    { opacity: 1; box-shadow: none; }
+  /* Red has taken over — start pulsing */
+  10%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(239,68,68,0.4), 0 0 24px 8px rgba(185,28,28,0.2); }
+  /* Pulse 1 */
+  20%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(239,68,68,0.7), 0 0 36px 12px rgba(185,28,28,0.35); }
+  30%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(239,68,68,0.4), 0 0 24px 8px rgba(185,28,28,0.2); }
+  /* Pulse 2 */
+  40%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(239,68,68,0.7), 0 0 36px 12px rgba(185,28,28,0.35); }
+  50%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(239,68,68,0.4), 0 0 24px 8px rgba(185,28,28,0.2); }
+  /* Pulse 3 — peak is the fade-out start point */
+  60%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(239,68,68,0.7), 0 0 36px 12px rgba(185,28,28,0.35); }
+  /* Quick 0.3s fade out from pulse 3 peak */
+  85%   { opacity: 0.15; box-shadow: 0 0 4px 1px rgba(239,68,68,0.08), 0 0 8px 2px rgba(185,28,28,0.04); }
+  100%  { opacity: 0; box-shadow: none; }
+}
+
+/* Notification: Claude orange glow halo pulse */
+
+/* Notification: 5 pulses + fade out — single animation */
+@keyframes notification-alert {
+  /* Pulse 1 */
+  0%    { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
+  9%    { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
+  18%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
+  /* Pulse 2 */
+  27%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
+  36%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
+  /* Pulse 3 */
+  45%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
+  54%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
+  /* Pulse 4 */
+  63%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
+  72%   { opacity: 1; box-shadow: 0 0 10px 3px rgba(218,119,86,0.4), 0 0 24px 8px rgba(218,119,86,0.2); }
+  /* Pulse 5 — peak then fade */
+  81%   { opacity: 1; box-shadow: 0 0 16px 6px rgba(218,119,86,0.7), 0 0 36px 12px rgba(218,119,86,0.35); }
+  92%   { opacity: 0.15; box-shadow: 0 0 4px 1px rgba(218,119,86,0.08), 0 0 8px 2px rgba(218,119,86,0.04); }
+  100%  { opacity: 0; box-shadow: none; }
 }
