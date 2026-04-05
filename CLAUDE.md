@@ -138,6 +138,38 @@ bash scripts/bundle.sh
 
 ---
 
+## 保存上传工作流（MANDATORY）
+
+每当用户说"保存"/"上传"/"记录"/"提交"/"commit"/"push"，**必须严格按以下顺序执行**：
+
+1. **更新文档**：追加 `DEVLOG.md` 一条日志 + 更新本文件"当前状态"
+2. **第一次 commit**：`git add` + `git commit`（安全快照，是 simplify 的回滚点）
+3. **运行 `/simplify`**：代码审查 + 修复
+4. **如果 simplify 有改动**：再 `git add` + `git commit -m "simplify: 代码质量优化"`
+5. **推送**：`git push`
+
+> **顺序不能颠倒**：第 2 步的 commit 是安全网。simplify 如果改错了，可以 `git reset --hard HEAD~1` 一键还原。
+> 如果先跑 simplify 再 commit，这个回滚点就不存在了。
+
+### DEVLOG.md 格式
+
+每次追加，**只追加，不修改历史**：
+
+```
+## YYYY-MM-DD — <本次会话一句话概述>
+
+### 完成内容
+- ...
+
+### 关键决策
+- 选择 X 方案，原因：...
+
+### 遗留问题 / 下次继续
+- ...
+```
+
+---
+
 ## 开发日志
 
 ### 2026-04-03 — 项目骨架完整搭建，全栈可运行
