@@ -11,6 +11,7 @@ final class OverlayPanel: NSPanel {
         )
         isOpaque = false
         backgroundColor = .clear
+        ignoresMouseEvents = true
         hasShadow = false
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]

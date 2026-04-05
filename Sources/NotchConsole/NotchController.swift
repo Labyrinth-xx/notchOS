@@ -115,6 +115,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     func expand() {
         guard !isExpanded else { return }
         isExpanded = true
+        panel.ignoresMouseEvents = false
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Config.Timing.expandDuration
@@ -130,6 +131,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         isExpanded = false
         collapseTimer?.invalidate()
         collapseTimer = nil
+        panel.ignoresMouseEvents = true
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Config.Timing.collapseDuration

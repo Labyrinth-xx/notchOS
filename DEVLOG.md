@@ -82,3 +82,19 @@
 - 字体大小对 pill 无效（pill 使用固定 CSS）
 - 全屏隐藏依赖 macOS 全屏切换事件，部分 app 不触发
 - 设置窗口无 App icon，样式与原生设置窗口有差距
+
+---
+
+## 2026-04-06 — fix: 收起状态透明区域鼠标穿透
+
+### 完成内容
+- 修复收起状态下 NSPanel 透明区域（glowPad 44px）拦截鼠标事件的 bug
+- 动态切换 `ignoresMouseEvents`：收起时 true（穿透），展开时 false（可交互）
+- 删除 `states.json` 中未使用的 error 音效 transition + `app.js` 对应逻辑
+
+### 关键决策
+- 选择动态 `ignoresMouseEvents` 而非重写 `hitTest`：3 行改动，无副作用，光晕视觉不受影响
+- hover 展开依赖全局 Mouse Monitor，不受 `ignoresMouseEvents` 影响
+
+### 遗留问题
+- v0.6 设置面板已知缺陷仍未修复（详细模式即时预览、pill 字体大小等）

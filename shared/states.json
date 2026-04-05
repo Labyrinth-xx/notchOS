@@ -102,10 +102,6 @@
       "from": ["working", "thinking", "juggling"],
       "to": ["idle", "sleeping", "attention"]
     },
-    "error": {
-      "from": ["*"],
-      "to": ["error"]
-    },
     "attention": {
       "from": ["*"],
       "to": ["notification"]

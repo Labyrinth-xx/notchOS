@@ -247,8 +247,6 @@ function onStateTransitionFallback(fromState, toState) {
   if (workingStates.has(fromState) && doneStates.has(toState)) {
     notifySwift("playSound", "complete");
     if (isExpanded) triggerConfetti();
-  } else if (toState === "error") {
-    notifySwift("playSound", "error");
   } else if (toState === "notification") {
     notifySwift("playSound", "attention");
   }

@@ -405,3 +405,21 @@ bash scripts/bundle.sh
 **当前状态**
 - Swift 编译通过 ✅
 - 所有 6 项设置实时生效 ✅
+
+---
+
+### 2026-04-06 — fix: 收起状态透明区域鼠标穿透
+
+**完成内容**
+- 修复收起状态下 NSPanel 透明区域（`glowPad` 44px 填充）拦截鼠标事件的 bug
+- `OverlayPanel.init()` 加 `ignoresMouseEvents = true`（默认穿透）
+- `NotchController.expand()` 设为 `false`（展开可交互）
+- `NotchController.collapse()` 设为 `true`（收起穿透）
+- 删除 `states.json` 中未使用的 `error` 音效 transition + `app.js` 对应逻辑
+
+**关键决策**
+- 动态 `ignoresMouseEvents` 而非重写 `hitTest`：3 行改动，光晕视觉不受影响，hover 展开依赖全局 Monitor 不受影响
+
+**当前状态**
+- Swift 编译通过 ✅
+- 收起状态透明区域鼠标穿透 ✅
