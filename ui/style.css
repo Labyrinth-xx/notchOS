@@ -150,7 +150,7 @@ body {
   display: none;
   flex-direction: column;
   gap: 8px;
-  padding: 38px 14px 14px;  /* top clears the 30px physical notch + 8px breathing room */
+  padding: 6px 14px 14px;
   /* Dark, almost opaque — grows from the notch */
   background: rgba(12, 12, 12, 0.97);
   border-radius: 0 0 20px 20px;
@@ -367,3 +367,210 @@ body {
 
 /* notification-freeze keyframe is injected dynamically by app.js
    with a random aurora glow color each time */
+
+/* ===== Settings Button ===== */
+
+.settings-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.settings-btn:hover,
+.settings-btn.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Settings Panel ===== */
+
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0 8px;
+}
+
+.settings-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 8px 14px 3px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  gap: 10px;
+}
+
+.settings-row-slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.settings-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.settings-hint {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.settings-value {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toggle switch (iOS-style) */
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.toggle-track::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: #4ade80;
+}
+
+.toggle-switch input:checked + .toggle-track::before {
+  transform: translateX(14px);
+  background: #fff;
+}
+
+/* Select */
+
+.settings-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 10px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.settings-select:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Range slider */
+
+.settings-slider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4ade80;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  background: #86efac;
+}
+
+/* ===== Session activity row (showAgentActivity) ===== */
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 5px;
+}
+
+.activity-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.activity-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Menlo", monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

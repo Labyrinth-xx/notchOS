@@ -27,6 +27,54 @@ let statePriority = [];  // sorted state names by priority (ascending = higher p
 // Track previous states per session for transition detection
 const previousStates = new Map();
 
+// ===== Settings =====
+// SETTINGS_KEY, DEFAULT_SETTINGS, notifySwift defined in shared.js
+
+let settings = { ...DEFAULT_SETTINGS };
+let autoHideTimer = null;
+let lastStateData = null;
+
+function loadSettings() {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+  } catch { /* use defaults on error */ }
+  applySettings();
+}
+
+function applySettings() {
+  const fontMap = { small: "11px", medium: "12px", large: "13px" };
+  document.documentElement.style.setProperty("--font-size-base", fontMap[settings.fontSize] || "12px");
+  const list = document.getElementById("sessionsList");
+  if (list) list.style.maxHeight = settings.maxListHeight + "px";
+  notifySwift("settingChanged", { key: "hideInFullscreen", value: settings.hideInFullscreen });
+}
+
+window.toggleSettingsPanel = function () {
+  notifySwift("openSettingsWindow", "");
+};
+
+// Called by Swift after settings window saves — re-read localStorage and re-render
+window.reloadSettings = function () {
+  loadSettings();
+  if (lastStateData) handleStateUpdate(lastStateData);
+};
+
+function scheduleAutoHide() {
+  if (autoHideTimer !== null) return;
+  autoHideTimer = setTimeout(() => {
+    autoHideTimer = null;
+    if (isExpanded && settings.autoHideWhenIdle) notifySwift("collapse", "");
+  }, 10000);
+}
+
+function cancelAutoHide() {
+  if (autoHideTimer !== null) {
+    clearTimeout(autoHideTimer);
+    autoHideTimer = null;
+  }
+}
+
 // Elements
 const pill = document.getElementById("pill");
 const pillDot = document.getElementById("pillDot");
@@ -142,6 +190,7 @@ function connectWebSocket() {
 // ===== State Update =====
 
 function handleStateUpdate(sessions) {
+  lastStateData = sessions;
   // Detect state transitions for sound effects
   for (const s of sessions) {
     const prev = previousStates.get(s.session_id);
@@ -155,6 +204,17 @@ function handleStateUpdate(sessions) {
   const activeIds = new Set(sessions.map((s) => s.session_id));
   for (const id of previousStates.keys()) {
     if (!activeIds.has(id)) previousStates.delete(id);
+  }
+
+  // Auto-hide when no active sessions
+  if (settings.autoHideWhenIdle && isExpanded) {
+    const allIdle = sessions.length === 0
+      || sessions.every((s) => s.state === "idle" || s.state === "sleeping");
+    if (allIdle) {
+      scheduleAutoHide();
+    } else {
+      cancelAutoHide();
+    }
   }
 
   renderPill(sessions);
@@ -194,11 +254,7 @@ function onStateTransitionFallback(fromState, toState) {
   }
 }
 
-function notifySwift(type, value) {
-  try {
-    window.webkit.messageHandlers.notch.postMessage({ type, value });
-  } catch { /* Swift bridge not available */ }
-}
+// notifySwift defined in shared.js
 
 // ===== Rendering =====
 
@@ -279,11 +335,16 @@ function renderPill(sessions) {
   if (sessions.length === 1) {
     const s = sessions[0];
     const label = s.title || s.project;
-    pillText.textContent = `${label} · ${s.state}`;
-    pillCount.textContent = s.tool_name || "";
+    if (settings.detailedMode) {
+      pillText.textContent = `${label} · ${s.state}`;
+      pillCount.textContent = s.tool_name || "";
+    } else {
+      pillText.textContent = label;
+      pillCount.textContent = "";
+    }
   } else {
     pillText.textContent = `${sessions.length} sessions`;
-    pillCount.textContent = dominant;
+    pillCount.textContent = settings.detailedMode ? dominant : "";
   }
 }
 
@@ -310,6 +371,9 @@ function renderDashboard(sessions) {
       const toolInfo = s.tool_name
         ? `<span class="session-tool">${escapeHtml(s.tool_name)}</span>`
         : "";
+      const activityRow = settings.showAgentActivity && s.tool_name
+        ? `<div class="activity-row"><span class="activity-dot"></span><span class="activity-label">${escapeHtml(s.tool_name)}</span></div>`
+        : "";
       const agentColor = (AGENT_META[s.agent] ?? { color: s.agent_color || "#888" }).color;
       return `
         <div class="session-card" style="--agent-color:${agentColor}">
@@ -320,8 +384,9 @@ function renderDashboard(sessions) {
             ${title}
             <div class="session-detail">
               <span class="session-state ${s.state}">${s.state}</span>
-              ${toolInfo}
+              ${settings.showAgentActivity ? "" : toolInfo}
             </div>
+            ${activityRow}
           </div>
           <span class="session-time">${elapsed}</span>
         </div>
@@ -428,8 +493,9 @@ function triggerConfetti() {
 
 // ===== Init =====
 
-// Load state config first, then connect
+// Load state config + settings, then connect
 loadStatesConfig().then(() => {
+  loadSettings();
   connectWebSocket();
   restartPolling();
 });

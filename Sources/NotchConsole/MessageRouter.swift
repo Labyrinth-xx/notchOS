@@ -37,6 +37,13 @@ final class MessageRouter {
             controller?.expand()
         case "collapse":
             controller?.collapse()
+        case "openSettingsWindow":
+            controller?.settingsWindow.show()
+        case "settingChanged":
+            if let payload = body["value"] as? [String: Any],
+               let key = payload["key"] as? String {
+                controller?.applySetting(key: key, rawValue: payload["value"])
+            }
         default:
             break
         }

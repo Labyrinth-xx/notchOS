@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>notchOS 设置</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background: #171717;
+      color: #e8e8e8;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: rgba(255, 255, 255, 0.35);
+      padding: 12px 16px 6px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      gap: 12px;
+    }
+
+    .row:first-of-type { border-top: none; }
+
+    .row-info { flex: 1; min-width: 0; }
+
+    .row-label {
+      font-size: 13px;
+      color: #e8e8e8;
+    }
+
+    .row-hint {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.38);
+      margin-top: 2px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 11px;
+      transition: background 0.2s;
+    }
+
+    .toggle-track::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 2px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .toggle input:checked + .toggle-track { background: #34c759; }
+    .toggle input:checked + .toggle-track::before {
+      transform: translateX(16px);
+      background: #fff;
+    }
+
+    /* Select */
+    select {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #e8e8e8;
+      font-size: 12px;
+      padding: 4px 8px;
+      cursor: pointer;
+      outline: none;
+      flex-shrink: 0;
+    }
+
+    select:focus { border-color: rgba(255, 255, 255, 0.22); }
+
+    /* Slider row */
+    .row-slider {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .row-slider-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .row-val {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #34c759;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="section">
+      <div class="section-title">显示</div>
+
+      <div class="row">
+        <div class="row-info">
+          <div class="row-label">详细模式</div>
+          <div class="row-hint">状态栏显示状态和工具名</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-detailedMode">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="row-info">
+          <div class="row-label">显示代理活动</div>
+          <div class="row-hint">卡片中显示当前工具调用</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-showAgentActivity">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="row-label">字体大小</div>
+        <select id="s-fontSize">
+          <option value="small">小</option>
+          <option value="medium">中</option>
+          <option value="large">大</option>
+        </select>
+      </div>
+
+      <div class="row row-slider">
+        <div class="row-slider-top">
+          <div class="row-label">会话列表高度</div>
+          <span class="row-val" id="s-heightVal">180px</span>
+        </div>
+        <input type="range" id="s-maxListHeight" min="100" max="320" step="20">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">行为</div>
+
+      <div class="row">
+        <div class="row-info">
+          <div class="row-label">全屏时隐藏</div>
+          <div class="row-hint">进入全屏应用时自动隐藏</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-hideInFullscreen">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="row-info">
+          <div class="row-label">无会话时自动折叠</div>
+          <div class="row-hint">无活跃会话 10 秒后折叠</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-autoHideWhenIdle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+  <script src="shared.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -13,6 +13,13 @@ enum Config {
         return url
     }
 
+    static var settingsURL: URL {
+        guard let url = URL(string: "\(backendBaseURL)/ui/settings.html") else {
+            fatalError("Invalid settings URL configuration")
+        }
+        return url
+    }
+
     enum Timing {
         static let expandDwell: TimeInterval = 0.4
         static let collapseDelay: TimeInterval = 0.15

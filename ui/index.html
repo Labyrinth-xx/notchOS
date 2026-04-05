@@ -27,12 +27,15 @@
     <div class="dash-header">
       <span class="dash-title">Claude Sessions</span>
       <span class="session-count" id="sessionCount">0 active</span>
+      <button class="settings-btn" id="settingsBtn" title="Settings" onclick="toggleSettingsPanel()">⚙</button>
     </div>
     <div class="sessions-list" id="sessionsList">
       <div class="empty-state">No active sessions</div>
     </div>
   </div>
 
+  <!-- Shared utilities (must load first) -->
+  <script src="shared.js"></script>
   <!-- Module system (load before app.js) -->
   <script src="modules/base-module.js"></script>
   <script src="modules/session-status.js"></script>

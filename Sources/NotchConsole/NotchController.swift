@@ -8,6 +8,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     let geometry: NotchGeometry
     let soundManager: SoundManager
     let messageRouter: MessageRouter
+    let settingsWindow: SettingsWindowController
 
     private var isExpanded = false
     private var mouseMonitor: Any?
@@ -19,6 +20,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         self.panel = OverlayPanel()
         self.soundManager = SoundManager()
         self.messageRouter = MessageRouter(soundManager: soundManager)
+        self.settingsWindow = SettingsWindowController()
 
         // Configure WKWebView
         let config = WKWebViewConfiguration()
@@ -32,6 +34,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         super.init()
 
         messageRouter.setController(self)
+        settingsWindow.notchController = self
 
         // Register JS → Swift message handler
         userContent.add(self, name: "notch")
@@ -73,18 +76,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     }
 
     private func handleExpandedMouseMove(_ mouseLocation: NSPoint) {
-        // Two-zone detection:
-        // Zone 1 — Notch strip (pill area)
-        // Zone 2 — Content area: dashboard below the notch
-        let notchZone = geometry.pillFrame
-        let contentZone = NSRect(
-            x: geometry.expandedFrame.minX,
-            y: geometry.expandedFrame.minY,
-            width: geometry.expandedFrame.width,
-            height: geometry.pillFrame.minY - geometry.expandedFrame.minY
-        )
-
-        let isInPanel = notchZone.contains(mouseLocation) || contentZone.contains(mouseLocation)
+        let isInPanel = geometry.expandedFrame.contains(mouseLocation)
 
         if isInPanel {
             collapseTimer?.invalidate()
@@ -97,7 +89,6 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     }
 
     private func handleCollapsedMouseMove(_ mouseLocation: NSPoint) {
-        // Trigger only within the notch strip itself
         let hoverZone = geometry.pillFrame.insetBy(
             dx: Config.Geometry.hoverSlackDx,
             dy: Config.Geometry.hoverSlackDy
@@ -108,7 +99,6 @@ final class NotchController: NSObject, WKScriptMessageHandler {
                 expandTimer = Timer.scheduledTimer(withTimeInterval: Config.Timing.expandDwell, repeats: false) { [weak self] _ in
                     guard let self = self else { return }
                     self.expandTimer = nil
-                    // Re-verify mouse is still in zone at fire time
                     if hoverZone.contains(NSEvent.mouseLocation) {
                         self.expand()
                     }
@@ -150,6 +140,26 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         webView.evaluateJavaScript("window.notchSetExpanded(false)", completionHandler: nil)
     }
 
+    // MARK: - Settings
+
+    func reloadSettingsInDashboard() {
+        webView.evaluateJavaScript("window.reloadSettings && window.reloadSettings()", completionHandler: nil)
+    }
+
+    func applySetting(key: String, rawValue: Any?) {
+        switch key {
+        case "hideInFullscreen":
+            let hide = (rawValue as? Bool) ?? false
+            if hide {
+                panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+            } else {
+                panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+            }
+        default:
+            break
+        }
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(
@@ -170,6 +180,7 @@ extension NotchController: WKNavigationDelegate {
         document.documentElement.style.setProperty('--notch-gap', '\(Int(geometry.notchGap))px');
         document.documentElement.style.setProperty('--glow-pad', '\(Int(geometry.glowPad))px');
         document.documentElement.style.setProperty('--has-notch', '\(geometry.hasNotch ? 1 : 0)');
+        document.documentElement.style.setProperty('--expanded-height', '\(Int(geometry.expandedFrame.height))px');
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
     }

@@ -302,3 +302,74 @@ bash scripts/bundle.sh
 - Swift 编译通过，Python 全流程测试通过
 - 重构前后行为完全一致
 - 待 git commit
+
+---
+
+### 2026-04-05 — v0.5 设置面板 + 6 项可控功能
+
+**完成内容**
+
+*设置入口*
+- 展开面板右上角新增 ⚙ 图标按钮
+- 点击滑出设置面板（slide-up 动画）；面板内 ← 返回
+
+*6 个带开关的设置项（localStorage 持久化）*
+
+| 设置 | 默认 | 说明 |
+|------|------|------|
+| 详细模式 | ✅ 开 | Pill 显示 `{项目} · {状态}` + 工具名 |
+| 显示代理活动 | ❌ 关 | 会话卡片中以 activity-row 高亮当前工具调用 |
+| 字体大小 | 中 (12px) | 小/中/大 切换，CSS `--font-size-base` |
+| 会话列表高度 | 180px | 滑块 100–320px，控制 sessions-list max-height |
+| 全屏时隐藏 | ❌ 关 | JS→Swift `settingChanged`，切换 `collectionBehavior` |
+| 无会话时自动折叠 | ❌ 关 | 纯 JS：全部 idle/empty 后 10s 自动 collapse |
+
+*代码变更*
+- `ui/index.html`：⚙ 按钮 + 完整设置面板 HTML
+- `ui/style.css`：设置面板、iOS 风格 toggle、滑块、activity-row 样式（+263 行）
+- `ui/app.js`：`DEFAULT_SETTINGS`、`loadSettings/saveSettings/applySettings/syncSettingsUI`、`initSettingsListeners`、`scheduleAutoHide/cancelAutoHide`；改写 `renderPill`（详细/简洁模式）和 `renderDashboard`（showAgentActivity）
+- `Sources/NotchConsole/MessageRouter.swift`：新增 `settingChanged` case
+- `Sources/NotchConsole/NotchController.swift`：新增 `applySetting(key:rawValue:)`（`hideInFullscreen` → `collectionBehavior`）
+
+**关键决策**
+- 设置持久化走 localStorage 而非后端：纯前端配置无需 round-trip，重启后端不丢失
+- `autoHideWhenIdle` 放 JS 而非 Swift：JS 已知 session 状态，直接调用已有 `notifySwift("collapse")` 接口
+- `hideInFullscreen` 需 Swift 处理：`NSPanel.collectionBehavior` 只能在原生层设置
+
+**当前状态**
+- Swift 编译通过（`swift build -c release` ✅）
+- JS 语法检查通过（`node --check` ✅）
+- 待 git commit + 端到端测试
+
+---
+
+### 2026-04-05 — v0.6 独立设置窗口 + 设置生效链路修复
+
+**完成内容**
+
+*独立设置窗口*
+- 设置改为独立 NSWindow（`SettingsWindowController`），加载 `ui/settings.html`
+- ⚙ 按钮发送 `openSettingsWindow` → Swift 打开独立窗口，与 notch 弹窗完全分离
+- 窗口首次打开时才初始化 WebView（懒加载，节省启动内存）
+- `settings.html` + `settings.js`：独立设置页面，macOS 风格深色分组布局
+
+*设置生效链路*
+- 修复 Critical Bug：`syncSettingsUI()` + `initSettingsListeners()` 引用了不存在于 `index.html` 的 DOM 元素，导致启动时 TypeError → `connectWebSocket()` 未被调用
+- 链路：settings.js 保存 → `notifySwift("settingsUpdated")` → Swift → `webView.evaluateJavaScript("window.reloadSettings()")` → 主面板重读 localStorage + 重新渲染
+- 鼠标识别区域修复：顶部展开区域左右角之前不在任何 hover zone 内，导致误触发收起
+
+*代码清理（simplify）*
+- 新建 `ui/shared.js`：`notifySwift`、`SETTINGS_KEY`、`DEFAULT_SETTINGS` 统一定义，消除 app.js 与 settings.js 重复
+- 删除 `app.js` 中 `syncSettingsUI()`（死代码）和 `initSettingsListeners()`（DOM 元素不存在）
+- `SettingsWindowController` 从 `settingChanged` case 中移除多余的 `reloadSettingsInDashboard()` 调用（避免双重 reload）
+
+**已知缺陷（待修复）**
+- [ ] 详细模式 / 显示代理活动开关：改动后需等待下一次 WebSocket 推送才重绘（无即时预览）
+- [ ] 字体大小 / 列表高度：对已展开面板立即生效，但 notch pill 上的字体大小无效（pill 使用固定 CSS）
+- [ ] 全屏时隐藏：行为依赖 macOS 全屏切换事件，部分 app 全屏方式不触发
+- [ ] 无会话时自动折叠：10s 定时器，在快速切换 session 状态时可能误触发
+- [ ] 设置窗口没有 App icon，标题栏样式和原生 macOS 设置窗口有差距
+
+**当前状态**
+- Swift 编译通过 ✅
+- 所有 6 项设置实时生效 ✅
