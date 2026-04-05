@@ -11,13 +11,16 @@ from pathlib import Path
 from fastapi import WebSocket
 
 from backend.models import AGENT_META, HookEvent, NotchResponse, SessionState
+from backend.states import get_ttl
 
 logger = logging.getLogger(__name__)
 
 SESSIONS_DIR = Path.home() / ".claude" / "sessions"
-IDLE_TTL_SECONDS = 300       # 5 minutes
-ATTENTION_TTL_SECONDS = 3.6  # matches CSS red-alert animation (3.5s) + 0.1s margin
-NOTIFICATION_TTL_SECONDS = 5.6  # matches CSS notification-alert (5.5s) + 0.1s margin
+
+# TTLs loaded from shared/states.json (with fallback defaults)
+IDLE_TTL_SECONDS: float = get_ttl("idle") or 300
+ATTENTION_TTL_SECONDS: float = get_ttl("attention") or 3.6
+NOTIFICATION_TTL_SECONDS: float = get_ttl("notification") or 5.6
 
 
 class StateManager:
@@ -29,6 +32,10 @@ class StateManager:
         self._ws_clients: set[WebSocket] = set()
         self._attention_tasks: dict[str, asyncio.Task] = {}
         self._downgrade_epoch: dict[str, int] = {}  # epoch counter per session to prevent stale downgrades
+
+    def get_session(self, session_id: str) -> SessionState | None:
+        """Get current session state (non-async, for router pre-check)."""
+        return self._sessions.get(session_id)
 
     async def handle_hook(self, event: HookEvent, state: str) -> SessionState:
         """Update session state from a hook event. Returns updated state."""

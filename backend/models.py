@@ -10,27 +10,6 @@ AGENT_META: dict[str, dict[str, str]] = {
     "claude-code": {"label": "CC", "display": "Claude Code", "color": "#F59E0B"},
 }
 
-# Single source of truth: maps hook event names to display states.
-# Reused across all agents (event names are agent-agnostic).
-EVENT_TO_STATE: dict[str, str] = {
-    "SessionStart": "idle",
-    "SessionEnd": "sleeping",
-    "UserPromptSubmit": "thinking",
-    "PreToolUse": "working",
-    "PostToolUse": "working",
-    "PostToolUseFailure": "error",
-    "Stop": "attention",
-    "SubagentStart": "juggling",
-    "SubagentStop": "working",
-    "PreCompact": "sweeping",
-    "PostCompact": "attention",
-    "Notification": "notification",
-    "PermissionRequest": "notification",
-    "Elicitation": "notification",
-    "WorktreeCreate": "carrying",
-}
-
-
 class HookEvent(BaseModel):
     """Incoming hook event from any AI coding agent."""
 
@@ -54,6 +33,8 @@ class SessionState(BaseModel):
     agent: str = "claude-code"
     agent_label: str = "CC"
     agent_color: str = "#F59E0B"
+    content_module: str | None = None
+    module_payload: dict | None = None
     started_at: float = 0.0
     updated_at: float = 0.0
 

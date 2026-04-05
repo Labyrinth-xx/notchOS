@@ -1,0 +1,135 @@
+{
+  "states": {
+    "idle": {
+      "color": "#4ade80",
+      "priority": 9,
+      "dot_animation": null,
+      "dot_opacity": 1,
+      "glow_type": null
+    },
+    "thinking": {
+      "color": "#60a5fa",
+      "priority": 4,
+      "dot_animation": "pulse 1.2s ease-in-out infinite",
+      "dot_opacity": 1,
+      "glow_type": "aurora"
+    },
+    "working": {
+      "color": "#fb923c",
+      "priority": 5,
+      "dot_animation": "breathe 2s ease-in-out infinite",
+      "dot_opacity": 1,
+      "glow_type": "aurora"
+    },
+    "error": {
+      "color": "#f87171",
+      "priority": 1,
+      "dot_animation": null,
+      "dot_opacity": 1,
+      "glow_type": "alert"
+    },
+    "attention": {
+      "color": "#f87171",
+      "priority": 2,
+      "dot_animation": "pulse 0.8s ease-in-out infinite",
+      "dot_opacity": 1,
+      "glow_type": "alert"
+    },
+    "notification": {
+      "color": "#fbbf24",
+      "priority": 3,
+      "dot_animation": "pulse 1s ease-in-out infinite",
+      "dot_opacity": 1,
+      "glow_type": "notification-freeze"
+    },
+    "juggling": {
+      "color": "#c084fc",
+      "priority": 6,
+      "dot_animation": "breathe 1.5s ease-in-out infinite",
+      "dot_opacity": 1,
+      "glow_type": "aurora"
+    },
+    "sweeping": {
+      "color": "#60a5fa",
+      "priority": 7,
+      "dot_animation": null,
+      "dot_opacity": 0.7,
+      "glow_type": "aurora"
+    },
+    "carrying": {
+      "color": "#c084fc",
+      "priority": 8,
+      "dot_animation": null,
+      "dot_opacity": 0.8,
+      "glow_type": "aurora"
+    },
+    "sleeping": {
+      "color": "#888",
+      "priority": 10,
+      "dot_animation": null,
+      "dot_opacity": 0.5,
+      "glow_type": null
+    },
+    "empty": {
+      "color": "#888",
+      "priority": 11,
+      "dot_animation": null,
+      "dot_opacity": 0.3,
+      "glow_type": null
+    }
+  },
+
+  "events": {
+    "SessionStart":       { "default_state": "idle" },
+    "SessionEnd":         { "default_state": "sleeping" },
+    "UserPromptSubmit":   { "default_state": "thinking" },
+    "PreToolUse":         { "default_state": "working" },
+    "PostToolUse":        { "default_state": "working" },
+    "PostToolUseFailure": { "default_state": "error" },
+    "Stop":               { "default_state": "attention" },
+    "SubagentStart":      { "default_state": "juggling" },
+    "SubagentStop":       { "default_state": "working" },
+    "PreCompact":         { "default_state": "sweeping" },
+    "PostCompact":        { "default_state": "attention" },
+    "Notification":       { "default_state": "notification" },
+    "PermissionRequest":  { "default_state": "notification" },
+    "Elicitation":        { "default_state": "notification" },
+    "WorktreeCreate":     { "default_state": "carrying" }
+  },
+
+  "sounds": {
+    "complete": {
+      "from": ["working", "thinking", "juggling"],
+      "to": ["idle", "sleeping", "attention"]
+    },
+    "error": {
+      "from": ["*"],
+      "to": ["error"]
+    },
+    "attention": {
+      "from": ["*"],
+      "to": ["notification"]
+    }
+  },
+
+  "ttl": {
+    "idle": 300,
+    "attention": 3.6,
+    "notification": 5.6
+  },
+
+  "glow_animations": {
+    "aurora": {
+      "animation": "aurora-flow 3s linear infinite, aurora-glow 3s linear infinite",
+      "background": null
+    },
+    "alert": {
+      "animation": "green-alert 3.5s ease-in-out forwards",
+      "background": "#e8e8e8"
+    },
+    "notification-freeze": {
+      "animation": "notification-freeze 5.5s ease-in-out forwards",
+      "background": null
+    }
+  }
+}

@@ -1,13 +1,14 @@
 /**
  * notchOS — Notch UI
  * WebSocket-first with polling fallback for session state.
+ * State definitions loaded from shared/states.json (single source of truth).
  */
 
 const WS_URL = "ws://127.0.0.1:23456/ws";
 const API_URL = "http://127.0.0.1:23456/api/state";
+const STATES_URL = "/shared/states.json";
 
 // Agent identity map — mirrors backend AGENT_META.
-// Add new agents here when they're added to backend/models.py.
 const AGENT_META = {
   "claude-code": { label: "CC", color: "#F59E0B" },
 };
@@ -18,6 +19,10 @@ let isExpanded = false;
 let pollTimer = null;
 let ws = null;
 let wsConnected = false;
+
+// State configuration loaded from states.json
+let statesConfig = null;
+let statePriority = [];  // sorted state names by priority (ascending = higher priority first)
 
 // Track previous states per session for transition detection
 const previousStates = new Map();
@@ -33,6 +38,64 @@ const sessionsList = document.getElementById("sessionsList");
 const wingLeft = document.getElementById("wingLeft");
 const wingRight = document.getElementById("wingRight");
 const pillGlow = document.getElementById("pillGlow");
+
+// ===== State Config Loading =====
+
+async function loadStatesConfig() {
+  try {
+    const res = await fetch(STATES_URL);
+    statesConfig = await res.json();
+
+    // Build priority-sorted state list (lower number = higher priority)
+    statePriority = Object.entries(statesConfig.states)
+      .sort(([, a], [, b]) => a.priority - b.priority)
+      .map(([name]) => name);
+
+    // Inject dynamic CSS for state-driven styles
+    injectStateStyles();
+  } catch {
+    // Fallback: hardcoded priority if config fails to load
+    statePriority = [
+      "error", "attention", "notification",
+      "thinking", "working", "juggling",
+      "sweeping", "carrying", "idle", "sleeping",
+    ];
+  }
+}
+
+function injectStateStyles() {
+  if (!statesConfig) return;
+
+  let css = "";
+  const states = statesConfig.states;
+  const glowAnimations = statesConfig.glow_animations;
+
+  for (const [name, def] of Object.entries(states)) {
+    // Status dot styles
+    const dotAnim = def.dot_animation ? `animation: ${def.dot_animation};` : "";
+    const dotOpacity = def.dot_opacity !== 1 ? `opacity: ${def.dot_opacity};` : "";
+    css += `.status-dot.${name} { background: ${def.color}; ${dotAnim} ${dotOpacity} }\n`;
+
+    // Session state text color in dashboard
+    css += `.session-state.${name} { color: ${def.color}; }\n`;
+
+    // Pill glow per-state rules
+    const glowType = def.glow_type;
+    if (glowType && glowAnimations[glowType]) {
+      const glow = glowAnimations[glowType];
+      const bgRule = glow.background ? `background: ${glow.background};` : "";
+      css += `#pillGlow[data-state="${name}"] { opacity: 1; ${bgRule} animation: ${glow.animation}; }\n`;
+    }
+  }
+
+  let el = document.getElementById("state-styles");
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "state-styles";
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+}
 
 // ===== Swift Bridge =====
 
@@ -100,6 +163,24 @@ function handleStateUpdate(sessions) {
 
 // Sound + confetti trigger on state transition
 function onStateTransition(sessionId, fromState, toState) {
+  if (!statesConfig) {
+    // Fallback: hardcoded rules
+    onStateTransitionFallback(fromState, toState);
+    return;
+  }
+
+  const sounds = statesConfig.sounds;
+  for (const [soundName, rule] of Object.entries(sounds)) {
+    const fromMatch = rule.from.includes("*") || rule.from.includes(fromState);
+    const toMatch = rule.to.includes(toState);
+    if (fromMatch && toMatch) {
+      notifySwift("playSound", soundName);
+      if (soundName === "complete" && isExpanded) triggerConfetti();
+    }
+  }
+}
+
+function onStateTransitionFallback(fromState, toState) {
   const workingStates = new Set(["working", "thinking", "juggling"]);
   const doneStates = new Set(["idle", "sleeping", "attention"]);
 
@@ -131,12 +212,7 @@ function formatElapsed(startedAt) {
 }
 
 function dominantState(sessions) {
-  const priority = [
-    "error", "attention", "notification",
-    "thinking", "working", "juggling",
-    "sweeping", "carrying", "idle", "sleeping",
-  ];
-  for (const state of priority) {
+  for (const state of statePriority) {
     if (sessions.some((s) => s.state === state)) return state;
   }
   return "empty";
@@ -192,12 +268,10 @@ function renderPill(sessions) {
 
   // Notification: freeze aurora at current position, pulse glow in random aurora color
   if (dominant === "notification") {
-    // Capture current animated values before removing aurora-flow/aurora-glow
     const computed = getComputedStyle(pillGlow);
     pillGlow.style.backgroundPosition = computed.backgroundPosition;
     injectFreezeKeyframe(computed.boxShadow || "");
   } else {
-    // Clear frozen position so aurora-flow can resume
     pillGlow.style.backgroundPosition = "";
   }
   pillGlow.dataset.state = dominant;
@@ -353,5 +427,9 @@ function triggerConfetti() {
 }
 
 // ===== Init =====
-connectWebSocket();
-restartPolling(); // Start polling immediately, WebSocket will stop it once connected
+
+// Load state config first, then connect
+loadStatesConfig().then(() => {
+  connectWebSocket();
+  restartPolling();
+});

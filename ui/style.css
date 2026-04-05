@@ -105,33 +105,10 @@ body {
   min-width: 0;
 }
 
-/* ===== Aurora state controls ===== */
-
-/* Active states: aurora flow + outer glow halo */
-#pillGlow[data-state="thinking"],
-#pillGlow[data-state="working"],
-#pillGlow[data-state="juggling"],
-#pillGlow[data-state="sweeping"],
-#pillGlow[data-state="carrying"] {
-  opacity: 1;
-  animation: aurora-flow 3s linear infinite, aurora-glow 3s linear infinite;
-}
-
-/* Error/attention: white strip + 3 glow pulses then fade out */
-#pillGlow[data-state="error"],
-#pillGlow[data-state="attention"] {
-  background: #e8e8e8;
-  opacity: 1;
-  animation: green-alert 3.5s ease-in-out forwards;
-}
-
-
-/* Notification: aurora freezes in place, blinks on/off like an interrupted machine */
-#pillGlow[data-state="notification"] {
-  /* No background override — keeps aurora gradient, frozen (no aurora-flow) */
-  opacity: 1;
-  animation: notification-freeze 5.5s ease-in-out forwards;
-}
+/* ===== Aurora state controls =====
+   Per-state rules (glow animations, dot colors, dot animations)
+   are injected dynamically by app.js from shared/states.json.
+   Only keyframe definitions remain in this file. */
 
 #pill.hidden,
 #pillGlow.hidden {
@@ -146,17 +123,8 @@ body {
   flex-shrink: 0;
 }
 
-.status-dot.idle { background: var(--green); }
-.status-dot.thinking { background: var(--blue); animation: pulse 1.2s ease-in-out infinite; }
-.status-dot.working { background: var(--orange); animation: breathe 2s ease-in-out infinite; }
-.status-dot.error { background: var(--red); }
-.status-dot.attention { background: var(--red); animation: pulse 0.8s ease-in-out infinite; }
-.status-dot.notification { background: var(--yellow); animation: pulse 1s ease-in-out infinite; }
-.status-dot.juggling { background: var(--purple); animation: breathe 1.5s ease-in-out infinite; }
-.status-dot.sweeping { background: var(--blue); opacity: 0.7; }
-.status-dot.carrying { background: var(--purple); opacity: 0.8; }
-.status-dot.sleeping { background: var(--text-muted); opacity: 0.5; }
-.status-dot.empty { background: var(--text-muted); opacity: 0.3; }
+/* Per-state dot styles (.status-dot.idle, .thinking, etc.)
+   are injected by app.js from shared/states.json */
 
 .pill-text {
   font-size: 11px;
@@ -282,15 +250,8 @@ body {
   letter-spacing: 0.3px;
 }
 
-.session-state.idle { color: var(--green); }
-.session-state.thinking { color: var(--blue); }
-.session-state.working { color: var(--orange); }
-.session-state.error { color: var(--red); }
-.session-state.attention { color: var(--red); }
-.session-state.notification { color: var(--yellow); }
-.session-state.juggling { color: var(--purple); }
-.session-state.sweeping { color: var(--blue); }
-.session-state.carrying { color: var(--purple); }
+/* Per-state session text colors (.session-state.idle, etc.)
+   are injected by app.js from shared/states.json */
 
 .session-tool {
   font-size: 10px;
