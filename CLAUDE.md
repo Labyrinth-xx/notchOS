@@ -252,7 +252,7 @@ bash scripts/bundle.sh
 - 系统完整运行中：`bash scripts/launch.sh` 启动
 
 **遗留问题 / 下次继续**
-- 无 LaunchAgent（随系统自启动）
+- ~~无 LaunchAgent（随系统自启动）~~ → ✅ 已实现
 - Session title 显示：当前 title 与 project 都显示，可考虑 title 替代 project 而非并排
 - 展开面板高度是否需要动态调整（内容少时不需要 260px）
 
@@ -423,3 +423,23 @@ bash scripts/bundle.sh
 **当前状态**
 - Swift 编译通过 ✅
 - 收起状态透明区域鼠标穿透 ✅
+
+---
+
+### 2026-04-06 — feat: LaunchAgent 自启动
+
+**完成内容**
+- 新建 `~/.config/notchOS/launch.sh`：后台启动脚本（非 TCC 保护目录）
+- 新建 `~/Library/LaunchAgents/com.local.notchOS.plist`：`RunAtLoad: true` 登录即启动
+- 创建项目独立 `.venv/`：之前不存在，uvicorn/fastapi 依赖缺失
+- `requirements.txt` 新增 `websockets>=13.0`：修复 WebSocket 404
+- 新建 `scripts/launch-daemon.sh`：项目内备份，供手动参考
+
+**关键决策**
+- 脚本放 `~/.config/notchOS/` 而非项目 `scripts/`：macOS TCC 阻止 launchd 执行 `~/Desktop` 下文件
+- 直接用 `.venv/bin/python3` 绝对路径而非 `source activate`：避免 venv activate 与 `set -u` 不兼容
+- `KeepAlive: false`：脚本内 `wait` 保活 uvicorn 进程，崩溃不自动重启（避免循环）
+
+**当前状态**
+- LaunchAgent 注册并运行 ✅
+- 后端 :23456 + WebSocket + NotchConsole App 全部正常 ✅

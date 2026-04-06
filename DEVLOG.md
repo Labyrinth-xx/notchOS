@@ -98,3 +98,20 @@
 
 ### 遗留问题
 - v0.6 设置面板已知缺陷仍未修复（详细模式即时预览、pill 字体大小等）
+
+---
+
+## 2026-04-06 — feat: LaunchAgent 自启动
+
+### 完成内容
+- LaunchAgent plist（`~/Library/LaunchAgents/com.local.notchOS.plist`），登录即启动
+- 启动脚本放 `~/.config/notchOS/launch.sh`，绕过 macOS TCC 对 Desktop 的限制
+- 创建项目独立 `.venv/`（之前不存在），安装 fastapi + uvicorn + websockets
+- `requirements.txt` 新增 `websockets>=13.0`（修复 WebSocket 404）
+
+### 关键决策
+- 脚本放 `~/.config/` 而非 `scripts/`：launchd 无法执行 `~/Desktop` 下文件（TCC 沙箱）
+- 用 `.venv/bin/python3` 绝对路径代替 `source activate`：activate 与 bash strict mode 不兼容
+
+### 遗留问题
+- v0.6 设置面板已知缺陷仍未修复
