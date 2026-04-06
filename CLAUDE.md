@@ -433,7 +433,6 @@ bash scripts/bundle.sh
 - 新建 `~/Library/LaunchAgents/com.local.notchOS.plist`：`RunAtLoad: true` 登录即启动
 - 创建项目独立 `.venv/`：之前不存在，uvicorn/fastapi 依赖缺失
 - `requirements.txt` 新增 `websockets>=13.0`：修复 WebSocket 404
-- 新建 `scripts/launch-daemon.sh`：项目内备份，供手动参考
 
 **关键决策**
 - 脚本放 `~/.config/notchOS/` 而非项目 `scripts/`：macOS TCC 阻止 launchd 执行 `~/Desktop` 下文件
