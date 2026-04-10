@@ -103,13 +103,16 @@ final class NotchController: NSObject, WKScriptMessageHandler {
             dy: Config.Geometry.hoverSlackDy
         )
 
-        // In split mode, also check the left bubble area
-        let leftBubbleZone = geometry.leftBubbleFrame.insetBy(
-            dx: Config.Geometry.hoverSlackDx,
-            dy: Config.Geometry.hoverSlackDy
-        )
-        let isInHoverZone = pillZone.contains(mouseLocation)
-            || (isSplit && leftBubbleZone.contains(mouseLocation))
+        let isInHoverZone: Bool
+        if isSplit {
+            let leftBubbleZone = geometry.leftBubbleFrame.insetBy(
+                dx: Config.Geometry.hoverSlackDx,
+                dy: Config.Geometry.hoverSlackDy
+            )
+            isInHoverZone = pillZone.contains(mouseLocation) || leftBubbleZone.contains(mouseLocation)
+        } else {
+            isInHoverZone = pillZone.contains(mouseLocation)
+        }
 
         if isInHoverZone {
             if expandTimer == nil {
@@ -117,8 +120,12 @@ final class NotchController: NSObject, WKScriptMessageHandler {
                     guard let self = self else { return }
                     self.expandTimer = nil
                     let current = NSEvent.mouseLocation
-                    let stillIn = pillZone.contains(current)
-                        || (self.isSplit && leftBubbleZone.contains(current))
+                    var stillIn = pillZone.contains(current)
+                    if self.isSplit {
+                        let lz = self.geometry.leftBubbleFrame.insetBy(
+                            dx: Config.Geometry.hoverSlackDx, dy: Config.Geometry.hoverSlackDy)
+                        stillIn = stillIn || lz.contains(current)
+                    }
                     if stillIn {
                         self.expand()
                     }

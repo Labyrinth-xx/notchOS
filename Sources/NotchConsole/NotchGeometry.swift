@@ -167,7 +167,9 @@ struct NotchGeometry {
         let pillW = centerWidth + wingWidth * 2
         let pillRect = NSRect(x: 100 + glowPad, y: 100 + glowPad, width: pillW, height: pillHeight)
 
-        let leftBubble = NSRect(x: 100 + glowPad - 44, y: 100 + glowPad, width: 36, height: 30)
+        let bw = Config.Geometry.secondaryBubbleWidth
+        let bh = Config.Geometry.secondaryBubbleHeight
+        let leftBubble = NSRect(x: 100 + glowPad - bw, y: 100 + glowPad, width: bw, height: bh)
         return NotchGeometry(
             hasNotch: false,
             wingWidth: wingWidth,

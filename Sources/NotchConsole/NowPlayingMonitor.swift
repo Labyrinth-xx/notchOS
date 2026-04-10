@@ -93,13 +93,7 @@ final class NowPlayingMonitor {
         let playbackRate = info["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double ?? 0
 
         let playing = playbackRate > 0
-        let wasPlaying = isPlaying
         isPlaying = playing
-
-        // Reschedule if playback state changed (different intervals)
-        if playing != wasPlaying {
-            scheduleNext()
-        }
 
         guard let trackTitle = title, !trackTitle.isEmpty else {
             injectEmpty()

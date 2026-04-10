@@ -62,34 +62,22 @@ class MusicModule extends NotchModule {
   }
 }
 
-function formatMusicTime(seconds) {
-  if (!seconds || seconds <= 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+// formatMusicTime is defined in shared.js
 
 // Bridge: receive music data from Swift NowPlayingMonitor
 window.notchUpdateMusic = function (data) {
-  // Check if music module is enabled in settings
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s.enableMusic === false) {
-        activityManager.remove("music");
-        window._latestMusicData = null;
-        return;
-      }
-    }
-  } catch { /* use default (enabled) */ }
+  if (!isModuleEnabled("enableMusic")) {
+    activityManager.remove("music");
+    window._latestMusicData = null;
+    return;
+  }
 
   if (data) {
     activityManager.update(
       "music",
       "music",
       data,
-      data.isPlaying ? 30 : 60  // ACTIVITY_PRIORITIES.music_playing : music_paused
+      data.isPlaying ? ACTIVITY_PRIORITIES.music_playing : ACTIVITY_PRIORITIES.music_paused
     );
   } else {
     activityManager.remove("music");

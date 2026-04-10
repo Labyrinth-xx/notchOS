@@ -130,19 +130,14 @@ class TimerModule extends NotchModule {
       return;
     }
 
-    // Check if timer module is enabled
-    try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (s.enableTimer === false) {
-          activityManager.remove("timer");
-          return;
-        }
-      }
-    } catch { /* use default (enabled) */ }
+    if (!isModuleEnabled("enableTimer")) {
+      activityManager.remove("timer");
+      return;
+    }
 
-    const priority = this.state === "running" ? 20 : 50; // running > music > paused
+    const priority = this.state === "running"
+      ? ACTIVITY_PRIORITIES.timer_running
+      : ACTIVITY_PRIORITIES.timer_paused;
     activityManager.update("timer", "timer", {
       state: this.state,
       remaining: this.remaining,

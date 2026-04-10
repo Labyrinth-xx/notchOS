@@ -56,6 +56,7 @@ window.toggleSettingsPanel = function () {
 
 // Called by Swift after settings window saves — re-read localStorage and re-render
 window.reloadSettings = function () {
+  invalidateSettingsCache();
   loadSettings();
   if (lastStateData) handleStateUpdate(lastStateData);
 };
@@ -165,8 +166,7 @@ window.notchSetSplit = function (split) {
   if (bubbleLeft && !isExpanded) {
     bubbleLeft.classList.toggle("visible", split);
   }
-  // Update tab bar visibility
-  updateTabBar();
+  // Tab bar is updated by activityManager.onChange — no need to call updateTabBar here
 };
 
 // Tab bar management
@@ -187,9 +187,9 @@ function updateTabBar() {
   }
 
   // Build tab buttons from active activities
-  const tabNames = { claude: "Claude", music: "Music", timer: "Timer" };
   tabBar.innerHTML = layout.all.map((a) => {
-    const label = tabNames[a.type] || a.type;
+    const mod = getModule(a.moduleId);
+    const label = mod ? mod.tabLabel : a.type;
     const isActive = activeTab === a.type ? " active" : "";
     return `<button class="tab-btn${isActive}" data-tab="${a.type}">${label}</button>`;
   }).join("");
@@ -329,15 +329,7 @@ function onStateTransitionFallback(fromState, toState) {
 // notifySwift defined in shared.js
 
 // ===== Rendering =====
-
-function formatElapsed(startedAt) {
-  const seconds = Math.floor(Date.now() / 1000 - startedAt);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
-}
+// formatElapsed and escapeHtml are defined in shared.js
 
 function dominantState(sessions) {
   for (const state of statePriority) {
@@ -413,43 +405,20 @@ function agentBadge(session) {
 }
 
 function renderDashboard(sessions) {
-  // Render the active tab's content
-  const tabContent = document.getElementById("tabContent");
-  if (!tabContent) return;
+  // Only render the active tab's pane to avoid unnecessary DOM writes
+  const moduleMap = { claude: "session_status", music: "music", timer: "timer" };
+  const moduleId = moduleMap[activeTab] || "session_status";
+  const mod = getModule(moduleId);
+  const pane = document.getElementById(`pane-${activeTab}`);
+  if (!mod || !pane) return;
 
-  // Always render claude pane (session status)
-  const claudePane = document.getElementById("pane-claude");
-  if (claudePane) {
-    const claudeMod = getModule("session_status");
-    if (claudeMod) {
-      const list = claudePane.querySelector(".sessions-list") || claudePane;
-      claudeMod.renderDashboard(list, { sessions, settings });
-    }
+  const data = { sessions, settings, music: window._latestMusicData, timer: {} };
+  if (activeTab === "claude") {
+    const list = pane.querySelector(".sessions-list") || pane;
+    mod.renderDashboard(list, data);
+  } else {
+    mod.renderDashboard(pane, data);
   }
-
-  // Render music pane if it exists and is active
-  const musicPane = document.getElementById("pane-music");
-  if (musicPane) {
-    const musicMod = getModule("music");
-    if (musicMod) {
-      musicMod.renderDashboard(musicPane, { sessions, settings, music: window._latestMusicData });
-    }
-  }
-
-  // Render timer pane if it exists and is active
-  const timerPane = document.getElementById("pane-timer");
-  if (timerPane) {
-    const timerMod = getModule("timer");
-    if (timerMod) {
-      timerMod.renderDashboard(timerPane, { sessions, settings, timer: {} });
-    }
-  }
-}
-
-function escapeHtml(str) {
-  const el = document.createElement("span");
-  el.textContent = str;
-  return el.innerHTML;
 }
 
 // ===== Polling Fallback =====
