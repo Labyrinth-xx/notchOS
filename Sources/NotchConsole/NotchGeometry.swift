@@ -9,6 +9,10 @@ struct NotchGeometry {
     let pillFrame: NSRect
     let collapsedFrame: NSRect
     let expandedFrame: NSRect
+    /// Secondary bubble in left wing area (for split-pill Dynamic Island mode)
+    let leftBubbleFrame: NSRect
+    /// Panel frame when in split mode (covers both bubbles + glow)
+    let splitCollapsedFrame: NSRect
 
     static func detect() -> NotchGeometry {
         let wingWidth = Config.Geometry.wingWidth
@@ -70,6 +74,25 @@ struct NotchGeometry {
         let expandedX = notchCenter - expandedWidth / 2
         let expandedY = screen.frame.maxY - expandedHeight
 
+        // Left bubble: small pill in the left wing area, right-aligned to notch edge
+        let bubbleW = Config.Geometry.secondaryBubbleWidth
+        let bubbleH = Config.Geometry.secondaryBubbleHeight
+        let leftBubbleX = leftArea.maxX - bubbleW
+        let leftBubbleY = screen.frame.maxY - bubbleH
+        let leftBubble = NSRect(x: leftBubbleX, y: leftBubbleY, width: bubbleW, height: bubbleH)
+
+        // Split collapsed: panel must cover both left bubble and main pill (+ glow padding)
+        let splitLeft = leftBubbleX - glowPad
+        let splitRight = pillX + pillWidth + glowPad
+        let splitBottom = min(leftBubbleY, pillY) - glowPad
+        let splitTop = screen.frame.maxY
+        let splitCollapsed = NSRect(
+            x: splitLeft,
+            y: splitBottom,
+            width: splitRight - splitLeft,
+            height: splitTop - splitBottom
+        )
+
         return NotchGeometry(
             hasNotch: true,
             wingWidth: wingWidth,
@@ -77,7 +100,9 @@ struct NotchGeometry {
             glowPad: glowPad,
             pillFrame: pillRect,
             collapsedFrame: NSRect(x: collapsedX, y: collapsedY, width: collapsedWidth, height: collapsedHeight),
-            expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
+            expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight),
+            leftBubbleFrame: leftBubble,
+            splitCollapsedFrame: splitCollapsed
         )
     }
 
@@ -100,19 +125,36 @@ struct NotchGeometry {
         let expandedX = screen.frame.midX - expandedWidth / 2
         let expandedY = screen.frame.maxY - expandedHeight - topOffset
 
+        let collapsed = NSRect(
+            x: pillX - glowPad,
+            y: pillY - glowPad,
+            width: pillWidth + glowPad * 2,
+            height: pillHeight + glowPad
+        )
+
+        // Non-notch: left bubble placed to the left of the pill
+        let bubbleW = Config.Geometry.secondaryBubbleWidth
+        let bubbleH = Config.Geometry.secondaryBubbleHeight
+        let leftBubbleX = pillX - bubbleW - 8
+        let leftBubbleY = screen.frame.maxY - bubbleH - topOffset
+        let leftBubble = NSRect(x: leftBubbleX, y: leftBubbleY, width: bubbleW, height: bubbleH)
+        let splitCollapsed = NSRect(
+            x: leftBubbleX - glowPad,
+            y: min(leftBubbleY, pillY) - glowPad,
+            width: (pillX + pillWidth + glowPad) - (leftBubbleX - glowPad),
+            height: pillHeight + glowPad
+        )
+
         return NotchGeometry(
             hasNotch: false,
             wingWidth: wingWidth,
             notchGap: centerWidth,
             glowPad: glowPad,
             pillFrame: pillRect,
-            collapsedFrame: NSRect(
-                x: pillX - glowPad,
-                y: pillY - glowPad,
-                width: pillWidth + glowPad * 2,
-                height: pillHeight + glowPad
-            ),
-            expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight)
+            collapsedFrame: collapsed,
+            expandedFrame: NSRect(x: expandedX, y: expandedY, width: expandedWidth, height: expandedHeight),
+            leftBubbleFrame: leftBubble,
+            splitCollapsedFrame: splitCollapsed
         )
     }
 
@@ -125,6 +167,7 @@ struct NotchGeometry {
         let pillW = centerWidth + wingWidth * 2
         let pillRect = NSRect(x: 100 + glowPad, y: 100 + glowPad, width: pillW, height: pillHeight)
 
+        let leftBubble = NSRect(x: 100 + glowPad - 44, y: 100 + glowPad, width: 36, height: 30)
         return NotchGeometry(
             hasNotch: false,
             wingWidth: wingWidth,
@@ -132,7 +175,9 @@ struct NotchGeometry {
             glowPad: glowPad,
             pillFrame: pillRect,
             collapsedFrame: NSRect(x: 100, y: 100, width: pillW + glowPad * 2, height: pillHeight + glowPad),
-            expandedFrame: NSRect(x: 100, y: 100, width: 420, height: 220)
+            expandedFrame: NSRect(x: 100, y: 100, width: 420, height: 220),
+            leftBubbleFrame: leftBubble,
+            splitCollapsedFrame: NSRect(x: 56, y: 100, width: pillW + glowPad * 2 + 44, height: pillHeight + glowPad)
         )
     }
 }

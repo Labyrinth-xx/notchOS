@@ -1,25 +1,27 @@
 # notchOS
 
-macOS 刘海屏 overlay，实时显示 Claude Code 各 session 的工作状态。
+macOS 灵动岛 overlay — Claude Code 会话监控 + 音乐/媒体 + 番茄钟 + 通知跳转。
 
 ## 架构
 
 ```
 notchOS/
-├── Sources/NotchConsole/             # Swift 原生层（v0.4 已拆分为 7 个文件）
+├── Sources/NotchConsole/             # Swift 原生层（v0.7: 10 个文件）
 │   ├── main.swift                    # 入口（~10 行）
-│   ├── Config.swift                  # 所有常量集中（URL、时间、几何、音效）
+│   ├── Config.swift                  # 所有常量集中（URL、时间、几何、音效、split 参数）
 │   ├── OverlayPanel.swift            # NSPanel 子类（非激活透明面板）
-│   ├── NotchGeometry.swift           # 屏幕 notch 检测 + 几何计算
-│   ├── NotchController.swift         # WKWebView + hover 检测 + 面板动画
+│   ├── NotchGeometry.swift           # 屏幕 notch 检测 + 几何计算 + 双气泡 split 帧
+│   ├── NotchController.swift         # WKWebView + hover 检测 + 面板动画 + split 模式
 │   ├── SoundManager.swift            # NSSound 播放 + 去抖 + 静音
-│   ├── MessageRouter.swift           # JS→Swift 消息分发
+│   ├── MessageRouter.swift           # JS→Swift 消息分发 + 媒体控制 + 计时器通知 + 终端跳转
+│   ├── NowPlayingMonitor.swift       # MediaRemote 私有框架 → NowPlaying 轮询 → JS 注入
+│   ├── TerminalJump.swift            # AppleScript 终端跳转（iTerm2 精确 + 通用激活）
 │   └── AppDelegate.swift             # 生命周期
 ├── shared/                           # 跨层共享配置
 │   └── states.json                   # 唯一真相源：状态、事件映射、动画、TTL、音效规则
 ├── backend/                          # Python FastAPI 后端（:23456）
 │   ├── server.py                     # 路由 + 事件路由器接入
-│   ├── models.py                     # Pydantic：HookEvent、SessionState、NotchResponse
+│   ├── models.py                     # Pydantic：HookEvent、SessionState（含 cwd）、NotchResponse
 │   ├── states.py                     # AgentState 枚举 + states.json 加载器
 │   ├── state_manager.py              # 内存 session 追踪 + TTL 清理
 │   ├── event_router.py               # 可插拔事件路由（优先级链）
@@ -27,20 +29,37 @@ notchOS/
 │       ├── __init__.py               # ContentModule 基类 + 注册表
 │       └── session_status.py         # 默认模块：会话状态卡片
 ├── ui/                               # Web UI（WKWebView 内嵌）
-│   ├── index.html
-│   ├── style.css                     # 暗色主题 + @keyframes（状态样式由 JS 注入）
-│   ├── app.js                        # WebSocket + 从 states.json 动态加载配置
+│   ├── index.html                    # 左气泡 + pill + dashboard（tab bar + tab content）
+│   ├── style.css                     # 暗色主题 + 双气泡 + tab bar + 音乐/计时器/通知样式
+│   ├── app.js                        # WebSocket + 模块委托 + tab 系统 + split 联动
+│   ├── activity-manager.js           # 多活动管理（claude/music/timer）+ 优先级排序
+│   ├── shared.js                     # 共享常量 + Swift bridge + 设置默认值
+│   ├── settings.html                 # 独立设置页面（含灵动岛模块开关）
+│   ├── settings.js                   # 设置管理
 │   └── modules/                      # JS 内容模块
 │       ├── base-module.js            # NotchModule 基类 + 注册表
-│       └── session-status.js         # 默认模块
+│       ├── session-status.js         # Claude 会话状态卡片
+│       ├── music-module.js           # 音乐/媒体：封面 + 曲名 + 进度条 + 播放控制
+│       ├── timer-module.js           # 番茄钟：倒计时 + 预设 + localStorage 持久化
+│       └── notification-module.js    # 通知摘要 + 跳转终端按钮
 ├── scripts/
 │   ├── launch.sh                     # 一键启动后端 + open .app
 │   ├── bundle.sh                     # swift build release → 打包 .app → ad-hoc 签名
-│   └── hook.py                       # Claude Code hook 脚本（零依赖 stdlib）
+│   └── hook.py                       # Claude Code hook 脚本（零依赖 stdlib，转发 cwd）
+├── docs/
+│   ├── vibe-island-research.md       # 竞品深度调研
+│   └── plans/                        # 实施计划
 ├── resources/Info.plist
 ├── Package.swift
 └── requirements.txt                  # fastapi>=0.115.0, uvicorn>=0.34.0
 ```
+
+## 关键文档
+
+| 文档 | 内容 | 什么时候读 |
+|------|------|-----------|
+| `docs/vibe-island-research.md` | 竞品深度调研（VibeIsland / CodeIsland / Claude Island / boring.notch 等），含功能对比、架构分析、notchOS 差距和优先级建议 | 规划新功能、架构决策、了解竞品做法时 |
+| `DEVLOG.md` | 开发日志，每次会话的完成内容和决策记录 | 恢复上下文时 |
 
 ## 启动
 

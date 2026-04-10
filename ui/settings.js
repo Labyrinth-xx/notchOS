@@ -20,13 +20,16 @@ function save() {
 
 function syncUI() {
   const g = (id) => document.getElementById(id);
-  g("s-detailedMode").checked      = settings.detailedMode;
-  g("s-showAgentActivity").checked = settings.showAgentActivity;
-  g("s-fontSize").value            = settings.fontSize;
-  g("s-maxListHeight").value       = settings.maxListHeight;
-  g("s-heightVal").textContent     = settings.maxListHeight + "px";
-  g("s-hideInFullscreen").checked  = settings.hideInFullscreen;
-  g("s-autoHideWhenIdle").checked  = settings.autoHideWhenIdle;
+  g("s-detailedMode").checked       = settings.detailedMode;
+  g("s-showAgentActivity").checked  = settings.showAgentActivity;
+  g("s-fontSize").value             = settings.fontSize;
+  g("s-maxListHeight").value        = settings.maxListHeight;
+  g("s-heightVal").textContent      = settings.maxListHeight + "px";
+  g("s-hideInFullscreen").checked   = settings.hideInFullscreen;
+  g("s-autoHideWhenIdle").checked   = settings.autoHideWhenIdle;
+  g("s-enableMusic").checked        = settings.enableMusic;
+  g("s-enableTimer").checked        = settings.enableTimer;
+  g("s-enableNotifications").checked = settings.enableNotifications;
 }
 
 function initListeners() {
@@ -62,6 +65,21 @@ function initListeners() {
 
   g("s-autoHideWhenIdle").addEventListener("change", (e) => {
     settings = { ...settings, autoHideWhenIdle: e.target.checked };
+    save();
+  });
+
+  g("s-enableMusic").addEventListener("change", (e) => {
+    settings = { ...settings, enableMusic: e.target.checked };
+    save();
+  });
+
+  g("s-enableTimer").addEventListener("change", (e) => {
+    settings = { ...settings, enableTimer: e.target.checked };
+    save();
+  });
+
+  g("s-enableNotifications").addEventListener("change", (e) => {
+    settings = { ...settings, enableNotifications: e.target.checked };
     save();
   });
 }

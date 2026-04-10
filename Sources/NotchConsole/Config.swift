@@ -35,7 +35,10 @@ enum Config {
         static let hoverSlackDx: CGFloat = -20
         static let hoverSlackDy: CGFloat = -4
         static let expandedExtraWidth: CGFloat = 200
-        static let expandedHeight: CGFloat = 260
+        static let expandedHeight: CGFloat = 300
+        // Secondary bubble (left wing) for split-pill mode
+        static let secondaryBubbleWidth: CGFloat = 36
+        static let secondaryBubbleHeight: CGFloat = 30
         // Non-notch fallback
         static let fallbackCenterWidth: CGFloat = 220
         static let fallbackExpandedWidth: CGFloat = 380

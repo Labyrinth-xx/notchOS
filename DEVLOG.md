@@ -2,6 +2,72 @@
 
 ---
 
+## 2026-04-10 — v0.7 Dynamic Island 改造：多活动 + 双气泡 + 音乐/计时器/通知
+
+### 完成内容
+
+*Phase 0: 模块系统激活*
+- `session-status.js` 实现完整 `renderPill()` / `renderDashboard()`
+- `app.js` 委托渲染给模块，保留 glow/state 管理
+
+*Phase 1: Activity Manager*
+- 新建 `activity-manager.js`：多活动管理（claude/music/timer），动态优先级
+- `handleStateUpdate()` 自动将 Claude 会话喂入 ActivityManager
+
+*Phase 2: 双气泡 + Tab 面板*
+- Swift: `NotchGeometry` 新增 `leftBubbleFrame` + `splitCollapsedFrame`（左翼区小气泡）
+- Swift: `NotchController.setSplit()` + split 模式 hover 检测覆盖两个区域
+- CSS: `#bubbleLeft` 左翼小气泡 + tab bar + tab pane 系统
+- JS: `notchSetSplit()` bridge + tab 切换 + ActivityManager → split 联动
+- 物理约束：刘海中间不可显示，气泡放在左翼（secondary）和刘海下方（primary）
+
+*Phase 3: 音乐/媒体模块*
+- `NowPlayingMonitor.swift`：dlopen MediaRemote 私有框架，3s/10s 轮询
+- `music-module.js`：封面缩略图、曲名/艺人、进度条、播放控制
+- 播放控制：play/pause/next/prev → Swift `MRMediaRemoteSendCommand`
+
+*Phase 4: 计时器/番茄钟模块*
+- `timer-module.js`：内建倒计时，4 种预设，localStorage 持久化
+- 完成时 Swift 原生 `UNUserNotificationCenter` 通知
+- 颜色随时间变化（绿→黄→红）
+
+*Phase 5: 通知增强 + 终端跳转*
+- `notification-module.js`：权限请求摘要卡片 + "Jump" 按钮
+- `TerminalJump.swift`：AppleScript iTerm2 精确跳转 + 通用终端激活
+- `hook.py` 新增转发 `cwd` 字段
+
+*设置开关*
+- 设置页面新增「灵动岛模块」section：音乐/计时器/通知 三个独立开关
+- `shared.js` 新增 `enableMusic` / `enableTimer` / `enableNotifications` 默认值
+
+*Code Review 修复（11 项）*
+- CRITICAL: TerminalJump AppleScript 注入 → sanitizeForAppleScript()
+- CRITICAL: notification-module onclick XSS → data-* + addEventListener
+- HIGH: 脚本加载顺序 → activity-manager.js 提前加载
+- HIGH: Timer resume 逻辑 → _resumeBase 字段
+- HIGH: dlopen handle 泄漏 → deinit 中 dlclose + stop
+- HIGH: JSON 转义 → JSONSerialization
+- HIGH: 本地鼠标监听泄漏 → 保存 localMouseMonitor
+- MEDIUM: enableNotifications 无效 → 添加检查
+- MEDIUM: 废弃 API launchApplication → open(URL)
+- LOW: 死变量/死代码清理
+- LOW: 零尺寸图片 guard
+
+### 关键决策
+- 数据流分离：Claude→Python→WS→JS / 音乐→Swift→JS / 计时器→JS 本地
+- 单 NSPanel + CSS 定位双气泡（不是两个窗口）
+- 不做 GUI 权限审批，只做通知 + 跳转终端
+- MediaRemote 私有框架用 dlopen（非 App Store 分发）
+- 刘海物理遮挡约束：左翼放 secondary 气泡，刘海下方放 primary pill
+
+### 遗留问题 / 下次继续
+- 端到端测试（播放音乐验证双气泡 split 效果）
+- 跨文件全局依赖（formatElapsed/agentBadge/AGENT_META 应移到 shared.js）
+- 双 updateTabBar 调用（onChange + notchSetSplit 回调）可优化
+- NowPlayingMonitor 首次 poll 在 WebView 加载完成前可能丢数据
+
+---
+
 ## 2026-04-03 — 项目骨架完整搭建，全栈可运行
 
 ### 完成内容

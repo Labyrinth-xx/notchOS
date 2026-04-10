@@ -26,6 +26,7 @@ if event not in KNOWN_EVENTS:
 session_id = "default"
 tool_name = None
 title = None
+cwd = None
 try:
     raw = sys.stdin.read()
     if raw:
@@ -33,6 +34,7 @@ try:
         session_id = payload.get("session_id", "default")
         tool_input = payload.get("tool_input", {})
         tool_name = payload.get("tool_name") or tool_input.get("tool_name")
+        cwd = payload.get("cwd")
         # Capture first user prompt as session title
         if event == "UserPromptSubmit":
             prompt = payload.get("prompt", "")
@@ -49,6 +51,7 @@ body_bytes = json.dumps({
     "tool_name": tool_name,
     "title": title,
     "agent": "claude-code",
+    "cwd": cwd,
 }).encode()
 
 # Fire-and-forget: raw socket POST, don't wait for response

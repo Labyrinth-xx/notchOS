@@ -54,6 +54,7 @@ class StateManager:
                     event=event.event,
                     tool_name=event.tool_name,
                     title=event.title,
+                    cwd=event.cwd,
                     agent=event.agent,
                     agent_label=agent_label,
                     agent_color=agent_color,

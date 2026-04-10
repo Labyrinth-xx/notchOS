@@ -152,8 +152,79 @@ window.notchSetExpanded = function (expanded) {
   isExpanded = expanded;
   pill.classList.toggle("hidden", expanded);
   pillGlow.classList.toggle("hidden", expanded);
+  // Hide left bubble when expanded (dashboard shows everything)
+  const bubbleLeft = document.getElementById("bubbleLeft");
+  if (bubbleLeft) bubbleLeft.classList.toggle("visible", false);
   dashboard.classList.toggle("visible", expanded);
   if (!wsConnected) restartPolling();
+};
+
+// Called by Swift when split mode changes
+window.notchSetSplit = function (split) {
+  const bubbleLeft = document.getElementById("bubbleLeft");
+  if (bubbleLeft && !isExpanded) {
+    bubbleLeft.classList.toggle("visible", split);
+  }
+  // Update tab bar visibility
+  updateTabBar();
+};
+
+// Tab bar management
+let activeTab = "claude";
+
+function updateTabBar() {
+  const tabBar = document.getElementById("tabBar");
+  if (!tabBar) return;
+
+  const layout = activityManager.getLayout();
+  const hasTabs = layout.all.length >= 2;
+  tabBar.classList.toggle("visible", hasTabs);
+
+  if (!hasTabs) {
+    // Single activity: show claude pane, hide tab bar
+    activateTab("claude");
+    return;
+  }
+
+  // Build tab buttons from active activities
+  const tabNames = { claude: "Claude", music: "Music", timer: "Timer" };
+  tabBar.innerHTML = layout.all.map((a) => {
+    const label = tabNames[a.type] || a.type;
+    const isActive = activeTab === a.type ? " active" : "";
+    return `<button class="tab-btn${isActive}" data-tab="${a.type}">${label}</button>`;
+  }).join("");
+
+  // Attach click handlers
+  for (const btn of tabBar.querySelectorAll(".tab-btn")) {
+    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+  }
+}
+
+function activateTab(tabId) {
+  activeTab = tabId;
+  // Update button states
+  const tabBar = document.getElementById("tabBar");
+  if (tabBar) {
+    for (const btn of tabBar.querySelectorAll(".tab-btn")) {
+      btn.classList.toggle("active", btn.dataset.tab === tabId);
+    }
+  }
+  // Ensure the claude pane is always present; other panes created dynamically
+  const tabContent = document.getElementById("tabContent");
+  if (!tabContent) return;
+
+  // Show/hide panes
+  for (const pane of tabContent.querySelectorAll(".tab-pane")) {
+    pane.classList.toggle("active", pane.id === `pane-${tabId}`);
+  }
+
+  // Create pane if it doesn't exist
+  if (!document.getElementById(`pane-${tabId}`)) {
+    const pane = document.createElement("div");
+    pane.className = "tab-pane active";
+    pane.id = `pane-${tabId}`;
+    tabContent.appendChild(pane);
+  }
 };
 
 // ===== WebSocket =====
@@ -205,6 +276,9 @@ function handleStateUpdate(sessions) {
   for (const id of previousStates.keys()) {
     if (!activeIds.has(id)) previousStates.delete(id);
   }
+
+  // Feed Claude sessions into ActivityManager
+  activityManager.updateClaude(sessions);
 
   // Auto-hide when no active sessions
   if (settings.autoHideWhenIdle && isExpanded) {
@@ -307,20 +381,13 @@ function injectFreezeKeyframe(capturedShadow) {
 }
 
 function renderPill(sessions) {
-  if (sessions.length === 0) {
-    pillDot.className = "status-dot empty";
-    pillText.textContent = "No sessions";
-    pillCount.textContent = "";
-    pill.dataset.state = "empty";
-    pillGlow.dataset.state = "empty";
-    return;
-  }
+  const dominant = sessions.length > 0 ? dominantState(sessions) : "empty";
 
-  const dominant = dominantState(sessions);
-  pillDot.className = `status-dot ${dominant}`;
+  // Update pill + glow state attributes (shared across all modules)
   pill.dataset.state = dominant;
+  pillGlow.dataset.state = dominant;
 
-  // Notification: freeze aurora at current position, pulse glow in random aurora color
+  // Notification: freeze aurora at current position
   if (dominant === "notification") {
     const computed = getComputedStyle(pillGlow);
     pillGlow.style.backgroundPosition = computed.backgroundPosition;
@@ -328,21 +395,12 @@ function renderPill(sessions) {
   } else {
     pillGlow.style.backgroundPosition = "";
   }
-  pillGlow.dataset.state = dominant;
 
-  if (sessions.length === 1) {
-    const s = sessions[0];
-    const label = s.title || s.project;
-    if (settings.detailedMode) {
-      pillText.textContent = `${label} · ${s.state}`;
-      pillCount.textContent = s.tool_name || "";
-    } else {
-      pillText.textContent = label;
-      pillCount.textContent = "";
-    }
-  } else {
-    pillText.textContent = `${sessions.length} sessions`;
-    pillCount.textContent = settings.detailedMode ? dominant : "";
+  // Delegate content rendering to active module
+  const mod = getActiveModule();
+  if (mod) {
+    const pillCenter = pill.querySelector(".pill-center");
+    mod.renderPill(pillCenter, { sessions, dominant, settings, statesConfig });
   }
 }
 
@@ -355,42 +413,37 @@ function agentBadge(session) {
 }
 
 function renderDashboard(sessions) {
-  sessionCount.textContent = `${sessions.length} active`;
+  // Render the active tab's content
+  const tabContent = document.getElementById("tabContent");
+  if (!tabContent) return;
 
-  if (sessions.length === 0) {
-    sessionsList.innerHTML = '<div class="empty-state">No active sessions</div>';
-    return;
+  // Always render claude pane (session status)
+  const claudePane = document.getElementById("pane-claude");
+  if (claudePane) {
+    const claudeMod = getModule("session_status");
+    if (claudeMod) {
+      const list = claudePane.querySelector(".sessions-list") || claudePane;
+      claudeMod.renderDashboard(list, { sessions, settings });
+    }
   }
 
-  sessionsList.innerHTML = sessions
-    .map((s) => {
-      const elapsed = formatElapsed(s.started_at);
-      const title = s.title ? `<div class="session-title">${escapeHtml(s.title)}</div>` : "";
-      const toolInfo = s.tool_name
-        ? `<span class="session-tool">${escapeHtml(s.tool_name)}</span>`
-        : "";
-      const activityRow = settings.showAgentActivity && s.tool_name
-        ? `<div class="activity-row"><span class="activity-dot"></span><span class="activity-label">${escapeHtml(s.tool_name)}</span></div>`
-        : "";
-      const agentColor = (AGENT_META[s.agent] ?? { color: s.agent_color || "#888" }).color;
-      return `
-        <div class="session-card" style="--agent-color:${agentColor}">
-          <div class="status-dot ${s.state}"></div>
-          ${agentBadge(s)}
-          <div class="session-info">
-            <div class="session-project">${escapeHtml(s.project)}</div>
-            ${title}
-            <div class="session-detail">
-              <span class="session-state ${s.state}">${s.state}</span>
-              ${settings.showAgentActivity ? "" : toolInfo}
-            </div>
-            ${activityRow}
-          </div>
-          <span class="session-time">${elapsed}</span>
-        </div>
-      `;
-    })
-    .join("");
+  // Render music pane if it exists and is active
+  const musicPane = document.getElementById("pane-music");
+  if (musicPane) {
+    const musicMod = getModule("music");
+    if (musicMod) {
+      musicMod.renderDashboard(musicPane, { sessions, settings, music: window._latestMusicData });
+    }
+  }
+
+  // Render timer pane if it exists and is active
+  const timerPane = document.getElementById("pane-timer");
+  if (timerPane) {
+    const timerMod = getModule("timer");
+    if (timerMod) {
+      timerMod.renderDashboard(timerPane, { sessions, settings, timer: {} });
+    }
+  }
 }
 
 function escapeHtml(str) {
@@ -490,6 +543,22 @@ function triggerConfetti() {
 }
 
 // ===== Init =====
+
+// Activity manager: notify Swift of split mode changes and update UI
+activityManager.onChange((layout) => {
+  const shouldSplit = layout.all.length >= 2;
+  notifySwift("setSplit", shouldSplit);
+
+  // Update left bubble content with secondary activity
+  const bubbleLeft = document.getElementById("bubbleLeft");
+  const bubbleIcon = document.getElementById("bubbleLeftIcon");
+  if (bubbleLeft && bubbleIcon && layout.secondary) {
+    const icons = { music: "\u266B", timer: "\u23F1", claude: "\u25CF" };
+    bubbleIcon.textContent = icons[layout.secondary.type] || "\u25CF";
+  }
+
+  updateTabBar();
+});
 
 // Load state config + settings, then connect
 loadStatesConfig().then(() => {

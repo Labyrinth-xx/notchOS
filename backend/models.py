@@ -30,6 +30,7 @@ class SessionState(BaseModel):
     event: str = ""
     tool_name: str | None = None
     title: str | None = None
+    cwd: str | None = None
     agent: str = "claude-code"
     agent_label: str = "CC"
     agent_color: str = "#F59E0B"

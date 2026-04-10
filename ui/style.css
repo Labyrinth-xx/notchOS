@@ -142,6 +142,38 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ===== Left Bubble (secondary activity, split-pill mode) ===== */
+
+#bubbleLeft {
+  position: absolute;
+  left: var(--left-bubble-x, 0px);
+  top: var(--left-bubble-y, 0px);
+  width: var(--left-bubble-w, 36px);
+  height: var(--left-bubble-h, 30px);
+  background: #000;
+  border-radius: 50%;
+  display: none; /* hidden until split mode */
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#bubbleLeft.visible {
+  display: flex;
+}
+
+#bubbleLeft .bubble-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+#bubbleLeft .bubble-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
 /* ===== Expanded Dashboard (Dynamic Island) ===== */
 
 #dashboard {
@@ -177,6 +209,61 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
+}
+
+/* Tab bar (shown when 2+ activities) */
+
+.tab-bar {
+  display: none;
+  gap: 2px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.tab-bar.visible {
+  display: flex;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tab-btn.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tab-pane.active {
+  display: flex;
 }
 
 .session-count {
@@ -299,6 +386,290 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 1px;
+}
+
+/* ===== Music Module ===== */
+
+.music-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.music-artwork {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.music-artwork-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.music-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.music-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-artist {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-album {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-state {
+  font-size: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.music-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.music-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.music-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.music-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.music-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.music-btn-play {
+  font-size: 20px;
+}
+
+/* ===== Timer Module ===== */
+
+.timer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  gap: 10px;
+}
+
+.timer-display {
+  font-size: 36px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: 2px;
+}
+
+.timer-display.warning {
+  color: var(--yellow);
+}
+
+.timer-display.critical {
+  color: var(--red);
+}
+
+.timer-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timer-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.timer-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 1s linear, background-color 0.3s;
+}
+
+.timer-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timer-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.timer-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.timer-btn-primary {
+  background: var(--green);
+  color: #000;
+  border-color: transparent;
+}
+
+.timer-btn-primary:hover {
+  background: #86efac;
+}
+
+.timer-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.timer-preset {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.timer-preset:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.timer-preset.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.timer-session-count {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ===== Notification Module ===== */
+
+.notif-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--yellow);
+}
+
+.notif-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-project {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notif-state {
+  font-size: 10px;
+  color: var(--yellow);
+  margin-top: 2px;
+}
+
+.notif-tool {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Menlo", monospace;
+  margin-top: 2px;
+}
+
+.notif-jump-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.notif-jump-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* ===== Animations ===== */

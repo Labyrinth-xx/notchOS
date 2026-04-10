@@ -9,9 +9,12 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     let soundManager: SoundManager
     let messageRouter: MessageRouter
     let settingsWindow: SettingsWindowController
+    var nowPlayingMonitor: NowPlayingMonitor?
 
     private var isExpanded = false
+    private(set) var isSplit = false
     private var mouseMonitor: Any?
+    private var localMouseMonitor: Any?
     private var collapseTimer: Timer?
     private var expandTimer: Timer?
 
@@ -49,6 +52,12 @@ final class NotchController: NSObject, WKScriptMessageHandler {
 
         panel.orderFrontRegardless()
 
+        // Start music monitoring
+        nowPlayingMonitor = NowPlayingMonitor(webView: webView)
+
+        // Request notification permission for timer
+        messageRouter.requestNotificationPermission()
+
         setupGlobalMouseMonitor()
     }
 
@@ -59,7 +68,7 @@ final class NotchController: NSObject, WKScriptMessageHandler {
             self?.handleMouseMove()
         }
 
-        NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.handleMouseMove()
             return event
         }
@@ -89,17 +98,28 @@ final class NotchController: NSObject, WKScriptMessageHandler {
     }
 
     private func handleCollapsedMouseMove(_ mouseLocation: NSPoint) {
-        let hoverZone = geometry.pillFrame.insetBy(
+        let pillZone = geometry.pillFrame.insetBy(
             dx: Config.Geometry.hoverSlackDx,
             dy: Config.Geometry.hoverSlackDy
         )
 
-        if hoverZone.contains(mouseLocation) {
+        // In split mode, also check the left bubble area
+        let leftBubbleZone = geometry.leftBubbleFrame.insetBy(
+            dx: Config.Geometry.hoverSlackDx,
+            dy: Config.Geometry.hoverSlackDy
+        )
+        let isInHoverZone = pillZone.contains(mouseLocation)
+            || (isSplit && leftBubbleZone.contains(mouseLocation))
+
+        if isInHoverZone {
             if expandTimer == nil {
                 expandTimer = Timer.scheduledTimer(withTimeInterval: Config.Timing.expandDwell, repeats: false) { [weak self] _ in
                     guard let self = self else { return }
                     self.expandTimer = nil
-                    if hoverZone.contains(NSEvent.mouseLocation) {
+                    let current = NSEvent.mouseLocation
+                    let stillIn = pillZone.contains(current)
+                        || (self.isSplit && leftBubbleZone.contains(current))
+                    if stillIn {
                         self.expand()
                     }
                 }
@@ -133,13 +153,30 @@ final class NotchController: NSObject, WKScriptMessageHandler {
         collapseTimer = nil
         panel.ignoresMouseEvents = true
 
+        let targetFrame = isSplit ? geometry.splitCollapsedFrame : geometry.collapsedFrame
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Config.Timing.collapseDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            panel.animator().setFrame(geometry.collapsedFrame, display: true)
+            panel.animator().setFrame(targetFrame, display: true)
         }
 
         webView.evaluateJavaScript("window.notchSetExpanded(false)", completionHandler: nil)
+    }
+
+    // MARK: - Split Mode
+
+    func setSplit(_ split: Bool) {
+        guard split != isSplit, !isExpanded else { return }
+        isSplit = split
+
+        let targetFrame = split ? geometry.splitCollapsedFrame : geometry.collapsedFrame
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Config.Timing.expandDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().setFrame(targetFrame, display: true)
+        }
+
+        webView.evaluateJavaScript("window.notchSetSplit(\(split))", completionHandler: nil)
     }
 
     // MARK: - Settings
@@ -177,12 +214,24 @@ final class NotchController: NSObject, WKScriptMessageHandler {
 
 extension NotchController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Calculate left bubble position relative to the split panel frame
+        let leftBubble = geometry.leftBubbleFrame
+        let splitFrame = geometry.splitCollapsedFrame
+
+        // In split mode, the panel origin changes — compute relative to splitCollapsedFrame
+        let bubbleRelX = leftBubble.origin.x - splitFrame.origin.x
+        let bubbleRelY = splitFrame.height - (leftBubble.origin.y - splitFrame.origin.y) - leftBubble.height
+
         let js = """
         document.documentElement.style.setProperty('--wing-width', '\(Int(geometry.wingWidth))px');
         document.documentElement.style.setProperty('--notch-gap', '\(Int(geometry.notchGap))px');
         document.documentElement.style.setProperty('--glow-pad', '\(Int(geometry.glowPad))px');
         document.documentElement.style.setProperty('--has-notch', '\(geometry.hasNotch ? 1 : 0)');
         document.documentElement.style.setProperty('--expanded-height', '\(Int(geometry.expandedFrame.height))px');
+        document.documentElement.style.setProperty('--left-bubble-x', '\(Int(bubbleRelX))px');
+        document.documentElement.style.setProperty('--left-bubble-y', '\(Int(bubbleRelY))px');
+        document.documentElement.style.setProperty('--left-bubble-w', '\(Int(leftBubble.width))px');
+        document.documentElement.style.setProperty('--left-bubble-h', '\(Int(leftBubble.height))px');
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
     }

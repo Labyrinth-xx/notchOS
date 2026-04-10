@@ -12,6 +12,16 @@ class NotchModule {
     throw new Error("NotchModule.id must be overridden");
   }
 
+  /** Label shown in the tab bar when multiple activities are active. */
+  get tabLabel() {
+    return this.id;
+  }
+
+  /** Icon shown in the left bubble when this is the secondary activity. */
+  get bubbleIcon() {
+    return "\u25CF";
+  }
+
   /**
    * Render content in pill (collapsed) mode.
    * @param {HTMLElement} container - The pill center element

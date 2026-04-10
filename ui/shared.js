@@ -10,6 +10,9 @@ const DEFAULT_SETTINGS = {
   maxListHeight: 180,
   hideInFullscreen: false,
   autoHideWhenIdle: false,
+  enableMusic: true,
+  enableTimer: true,
+  enableNotifications: true,
 };
 
 function notifySwift(type, value) {
